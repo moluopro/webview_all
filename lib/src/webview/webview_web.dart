@@ -1,6 +1,7 @@
+// ignore_for_file: no_logic_in_create_state
+
 import 'package:flutter/material.dart';
-import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
-// import 'package:webview_flutter_web/webview_flutter_web.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class WebviewWeb extends StatefulWidget {
   final String url;
@@ -18,16 +19,7 @@ class _WebviewWebState extends State<WebviewWeb> {
 
   @override
   Widget build(BuildContext context) {
-    final PlatformWebViewController controller = PlatformWebViewController(
-      const PlatformWebViewControllerCreationParams(),
-    )..loadRequest(
-        LoadRequestParams(
-          uri: Uri.parse(url),
-        ),
-      );
-
-    return PlatformWebViewWidget(
-      PlatformWebViewWidgetCreationParams(controller: controller),
-    ).build(context);
+    launchUrl(Uri.parse(url));
+    return const SizedBox.expand();
   }
 }

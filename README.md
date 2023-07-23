@@ -2,14 +2,14 @@
 
 A webview widget with full platform support, based on the existing package.  
 
-|          |       |     |
-| -------- | ------- | ---- |
-| Android  | ✅     |SDK 20+|
-| IOS  | ✅     |SDK 9.0+|
-| Web  | ✅     |Not widely tested|
-| Linux    | ✅    | |
-| macOS    | ✅     |  WKWebview |
-| Windows  | ✅    | |
+|          |          |          |
+| -------- | -------- | -------- |
+| Android  | ✅       |SDK 20+   |
+| IOS      | ✅       |SDK 9.0+  |
+| Web      | ✅       | Any      |
+| Linux    | ✅       |Not widely tested|
+| macOS    | ✅       | WKWebview |
+| Windows  | ✅       | Any      |
 
 ## Usage  
 
@@ -63,6 +63,7 @@ On iOS the WebView widget is backed by a [WKWebView](https://developer.apple.com
 
 On Android the WebView widget is backed by a [WebView](https://developer.android.com/reference/android/webkit/WebView).  
 
-On web the WebView widget will use the webview_flutter_web plugin.   
+On web the WebView widget will use the `webview_flutter_web` plugin.   
+> This plugin can't run for now and use url_launcher instead  
 
 On desktop the WebView widget will use the webf plugin and only support simple webpage.  

@@ -1,7 +1,7 @@
 name: webview_all
 description: A webview component with full platform support, based on the existing package.
-version: 0.2.1
-homepage: https://www.abandoft.com
+version: 0.2.2
+homepage: https://github.com/moluopro/webview_all
 
 platforms:
   android:
@@ -19,13 +19,8 @@ dependencies:
   flutter:
     sdk: flutter
   webview_flutter: ^4.2.2
-  webview_flutter_platform_interface: ^2.0.0
-  webview_flutter_web:
+  url_launcher: ^6.1.12
   webf: ^0.15.0-beta.3+1
-  # Oths
-  # webview_flutter_platform_interface: ^2.4.0
-  webview_flutter_wkwebview: ^3.7.1
-
 
 dev_dependencies:
   flutter_test:

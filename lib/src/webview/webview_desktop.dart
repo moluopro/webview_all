@@ -7,6 +7,7 @@ class WebviewDesktop extends StatefulWidget {
   const WebviewDesktop({Key? key, required this.url}) : super(key: key);
 
   @override
+  // ignore: no_logic_in_create_state
   State<WebviewDesktop> createState() => _WebviewDesktopState(url: url);
 }
 

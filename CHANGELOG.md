@@ -1,3 +1,7 @@
+## 0.2.2
+
+* fix bugs about web
+
 ## 0.2.1
 
 * run successfully
