@@ -2,7 +2,7 @@
 
 [English Doc](https://github.com/moluopro/webview_all/blob/main/README.md) &nbsp;&nbsp;&nbsp;[中文文档](https://github.com/moluopro/webview_all/blob/main/README.ZH.md)  
 
-支持所有Flutter平台的Webview组件(基于社区现有的库)  
+支持所有Flutter平台的Webview组件 (基于社区现有的库)  
 
 |          |          |          |
 | -------- | -------- | -------- |
@@ -59,7 +59,7 @@ class _MyBrowserState extends State<MyBrowser> {
 }
 ```   
 
-### 细节  
+### Detail  
 
 On iOS the WebView widget is backed by a [WKWebView](https://developer.apple.com/documentation/webkit/wkwebview).  
 
