@@ -1,3 +1,7 @@
+## 0.2.3
+
+* doc update
+
 ## 0.2.2
 
 * fix bugs about web

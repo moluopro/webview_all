@@ -2,7 +2,7 @@
 
 [English](https://github.com/moluopro/webview_all/blob/main/README.md) &nbsp;&nbsp;&nbsp;[中文文档](https://github.com/moluopro/webview_all/blob/main/README.ZH.md)  
 
-A webview widget with full platform support, based on the existing packages.  
+支持所有Flutter平台的Webview组件(基于社区现有的库)  
 
 |          |          |          |
 | -------- | -------- | -------- |
@@ -13,12 +13,12 @@ A webview widget with full platform support, based on the existing packages.
 | macOS    | ✅       |Not widely tested|
 | Windows  | ✅       | Any      |
 
-### Quick Start  
+### 快速开始  
 
-1. Add `webview_all` as a [dependency](https://pub.dev/packages/webview_all/install) in your `pubspec.yaml` file.  
+1. 将`webview_all`添加进[依赖](https://pub.dev/packages/webview_all/install) (`pubspec.yaml`文件).  
 > flutter pub add webview_all  
 
-2. Just use it:   
+2. 直接像这样使用即可：   
 
 ```dart
 import 'package:flutter/material.dart';
@@ -59,7 +59,7 @@ class _MyBrowserState extends State<MyBrowser> {
 }
 ```   
 
-### Detail  
+### 细节  
 
 On iOS the WebView widget is backed by a [WKWebView](https://developer.apple.com/documentation/webkit/wkwebview).  
 
