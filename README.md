@@ -61,11 +61,11 @@ class _MyBrowserState extends State<MyBrowser> {
 
 ### Detail  
 
-On iOS the WebView widget is backed by a [WKWebView](https://developer.apple.com/documentation/webkit/wkwebview).  
+On iOS the Webview widget is backed by a [WKWebView](https://developer.apple.com/documentation/webkit/wkwebview).  
 
-On Android the WebView widget is backed by a [WebView](https://developer.android.com/reference/android/webkit/WebView).  
+On Android the Webview widget is backed by a [WebView](https://developer.android.com/reference/android/webkit/WebView).  
 
-On web the WebView widget will use the `webview_flutter_web` plugin.   
+On web the Webview widget will use the `webview_flutter_web` plugin.   
 > This official plugin from Flutter is not working at the moment, so we are using `url_launcher` plugin instead. We will update `webview_all` as soon as the bug is fixed.  
 
-On desktop the WebView widget will use the `webf` plugin and only support simple webpage.  
+On desktop the Webview widget will use the `webf` plugin and only support simple webpage.  
