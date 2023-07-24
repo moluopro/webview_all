@@ -72,4 +72,4 @@ On Android the Webview widget is backed by a [WebView](https://developer.android
 
 On web the Webview widget will use the `webview_flutter_web` plugin.   
 
-On desktop the Webview widget will use the `webf` plugin and only support simple webpage.  
+On desktop the Webview widget will use the `webf` plugin and only support less complex webpages.  
