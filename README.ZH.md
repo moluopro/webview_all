@@ -11,7 +11,7 @@
 | Web      | ✅       | Any      |
 | Linux    | ✅       |Not widely tested|
 | macOS    | ✅       |Not widely tested|
-| Windows  | ✅       | Any      |
+| Windows  | ✅       | 7+      |
 
 ### 快速开始  
 

@@ -1,3 +1,7 @@
+## 0.2.4
+
+* dep update
+
 ## 0.2.3
 
 * doc update

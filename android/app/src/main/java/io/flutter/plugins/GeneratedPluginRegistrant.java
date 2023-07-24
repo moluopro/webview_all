@@ -1,6 +1,10 @@
 package io.flutter.plugins;
 
 import io.flutter.plugin.common.PluginRegistry;
+import io.flutter.plugins.sharedpreferences.SharedPreferencesPlugin;
+import io.flutter.plugins.urllauncher.UrlLauncherPlugin;
+import com.openwebf.webf.WebFPlugin;
+import io.flutter.plugins.webviewflutter.WebViewFlutterPlugin;
 
 /**
  * Generated file. Do not edit.
@@ -10,6 +14,10 @@ public final class GeneratedPluginRegistrant {
     if (alreadyRegisteredWith(registry)) {
       return;
     }
+    SharedPreferencesPlugin.registerWith(registry.registrarFor("io.flutter.plugins.sharedpreferences.SharedPreferencesPlugin"));
+    UrlLauncherPlugin.registerWith(registry.registrarFor("io.flutter.plugins.urllauncher.UrlLauncherPlugin"));
+    WebFPlugin.registerWith(registry.registrarFor("com.openwebf.webf.WebFPlugin"));
+    WebViewFlutterPlugin.registerWith(registry.registrarFor("io.flutter.plugins.webviewflutter.WebViewFlutterPlugin"));
   }
 
   private static boolean alreadyRegisteredWith(PluginRegistry registry) {

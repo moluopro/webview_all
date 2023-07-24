@@ -2,7 +2,7 @@
 
 [English Doc](https://github.com/moluopro/webview_all/blob/main/README.md) &nbsp;&nbsp;&nbsp;[中文文档](https://github.com/moluopro/webview_all/blob/main/README.ZH.md)  
 
-A webview widget with full-platform support, based on the existing packages.  
+a webview widget with full-platform support, based on the existing packages  
 
 |          |          |          |
 | -------- | -------- | -------- |
@@ -11,7 +11,7 @@ A webview widget with full-platform support, based on the existing packages.
 | Web      | ✅       | Any      |
 | Linux    | ✅       |Not widely tested|
 | macOS    | ✅       |Not widely tested|
-| Windows  | ✅       | Any      |
+| Windows  | ✅       | 7+      |
 
 ### Quick Start  
 
