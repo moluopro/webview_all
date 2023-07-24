@@ -28,6 +28,6 @@ class MyBrowserState extends State<MyBrowser> {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-        body: Center(child: Webview(url: "https://www.baidu.com")));
+        body: Center(child: Webview(url: "https://www.wechat.com/en")));
   }
 }

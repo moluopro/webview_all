@@ -1,3 +1,7 @@
+## 0.3.1
+
+* fix bugs about web
+
 ## 0.2.4
 
 * dep update

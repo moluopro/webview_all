@@ -52,12 +52,17 @@ class _MyBrowserState extends State<MyBrowser> {
   Widget build(BuildContext context) {
     return const Scaffold(
         body: Center(
-          child: Webview(url: "https://www.baidu.com")
+          child: Webview(url: "https://www.wechat.com/en")
       )
     );
   }
 }
 ```   
+
+然后您将看到:  
+
+![example](https://s1.ax1x.com/2023/07/24/pCOJIN4.png)  
+<br>
 
 ### Detail  
 
@@ -66,6 +71,5 @@ On iOS the Webview widget is backed by a [WKWebView](https://developer.apple.com
 On Android the Webview widget is backed by a [WebView](https://developer.android.com/reference/android/webkit/WebView).  
 
 On web the Webview widget will use the `webview_flutter_web` plugin.   
-> This official plugin from Flutter is not working at the moment, so we are using `url_launcher` plugin instead. We will update `webview_all` as soon as the bug is fixed.  
 
 On desktop the Webview widget will use the `webf` plugin and only support simple webpage.  
