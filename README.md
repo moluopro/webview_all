@@ -12,7 +12,7 @@ a webview widget with full-platform support, based on the existing packages
 || Windows  | ✅      | Win 7+   |
 || macOS    | ✅      | Any      |
 || Linux    | ✅      | Any      |
-
+  
 > ⚠: Linux and macOS platforms require more testing.  
 
 ### Quick Start  

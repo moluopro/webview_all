@@ -12,7 +12,7 @@
 || Windows  | ✅      | Win 7+   |
 || macOS    | ✅      | Any      |
 || Linux    | ✅      | Any      |
-
+  
 > ⚠：Linux和macOS平台还需要更多的测试。  
 
 ### 快速开始  
