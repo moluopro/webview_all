@@ -4,18 +4,17 @@
 
 a webview widget with full-platform support, based on the existing packages  
 
-|          |          |          |          |          |          |  
-| -------- | -------- | -------- | -------- | -------- | -------- |  
-| Android  | IOS      | Web      | Linux    | macOS    | Windows  |  
-| ✅      | ✅       | ✅       | ✅      | ✅       | ✅       |  
-|SDK 20+   |SDK 9.0+  | Any      | Any      | Any      | Win 7+   |  
+| OS       | Status   | Note     || OS       | Status   | Note     |  
+| -------- | -------- | -------- |-| -------- | -------- | -------- |  
+| Android  | ✅      |SDK 20+   || Windows  | ✅      | Win 7+   |  
+| IOS      | ✅      |SDK 9.0+  || macOS    | ✅      | Any      |  
+| Web      | ✅      | Any      || Linux    | ✅      | Any      |  
 
 > ⚠: Linux and macOS platforms require more testing.  
 
 ### Quick Start  
 
 1. Add `webview_all` as a [dependency](https://pub.dev/packages/webview_all/install) in your `pubspec.yaml` file.  
-> flutter pub add webview_all  
 
 2. Just use it:   
 
@@ -59,7 +58,7 @@ class _MyBrowserState extends State<MyBrowser> {
 }
 ```   
 
-Then you will see:  
+Run `flutter run -d windows`, then you will see:  
 
 ![example](https://s1.ax1x.com/2023/07/24/pCOJIN4.png)  
 <br>

@@ -4,18 +4,17 @@
 
 支持所有Flutter平台的Webview组件 (基于社区现有的库)  
 
-|          |          |          |          |          |          |  
-| -------- | -------- | -------- | -------- | -------- | -------- |  
-| Android  | IOS      | Web      | Linux    | macOS    | Windows  |  
-| ✅      | ✅       | ✅       | ✅      | ✅       | ✅       |  
-|SDK 20+   |SDK 9.0+  | Any      | Any      | Any      | Win 7+   |  
+| OS       | Status   | Note     || OS       | Status   | Note     |  
+| -------- | -------- | -------- |-| -------- | -------- | -------- |  
+| Android  | ✅      |SDK 20+   || Windows  | ✅      | Win 7+   |  
+| IOS      | ✅      |SDK 9.0+  || macOS    | ✅      | Any      |  
+| Web      | ✅      | Any      || Linux    | ✅      | Any      |  
 
 > ⚠：Linux和macOS平台还需要更多的测试。  
 
 ### 快速开始  
 
 1. 将`webview_all`添加进[依赖](https://pub.dev/packages/webview_all/install) (`pubspec.yaml`文件).  
-> flutter pub add webview_all  
 
 2. 直接像这样使用即可：   
 
@@ -59,7 +58,7 @@ class _MyBrowserState extends State<MyBrowser> {
 }
 ```   
 
-然后您将看到:  
+运行`flutter run -d windows`，然后您将看到:  
 
 ![example](https://s1.ax1x.com/2023/07/24/pCOJIN4.png)  
 <br>
