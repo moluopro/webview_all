@@ -4,11 +4,14 @@
 
 a webview widget with full-platform support, based on the existing packages  
 
-| OS       | Status   | Note     || OS       | Status   | Note     |  
-| -------- | -------- | -------- |-| -------- | -------- | -------- |  
-| Android  | ✅      |SDK 20+   || Windows  | ✅      | Win 7+   |  
-| IOS      | ✅      |SDK 9.0+  || macOS    | ✅      | Any      |  
-| Web      | ✅      | Any      || Linux    | ✅      | Any      |  
+| Platform | Status   | Note     |  
+| -------- | -------- | -------- |  
+| Android  | ✅      | SDK 20+  |  
+| IOS      | ✅      | SDK 9+   |  
+| Web      | ✅      | Any      |  
+| Windows  | ✅      | Win 7+   |  
+| macOS    | ✅      | Any      |  
+| Linux    | ✅      | Any      |  
 
 > ⚠: Linux and macOS platforms require more testing.  
 
