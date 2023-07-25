@@ -4,14 +4,14 @@
 
 支持所有Flutter平台的Webview组件 (基于社区现有的库)  
 
-| Platform | Status   | Note     |  
-| -------- | -------- | -------- |  
-| Android  | ✅      | SDK 20+  |  
-| IOS      | ✅      | SDK 9+   |  
-| Web      | ✅      | Any      |  
-| Windows  | ✅      | Win 7+   |  
-| macOS    | ✅      | Any      |  
-| Linux    | ✅      | Any      |  
+|| Platform | Status   | Note     |
+|-| -------- | -------- | -------- |
+|| Android  | ✅      | SDK 20+  |
+|| IOS      | ✅      | SDK 9+   |
+|| Web      | ✅      | Any      |
+|| Windows  | ✅      | Win 7+   |
+|| macOS    | ✅      | Any      |
+|| Linux    | ✅      | Any      |
 
 > ⚠：Linux和macOS平台还需要更多的测试。  
 

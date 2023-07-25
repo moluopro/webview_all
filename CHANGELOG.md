@@ -1,3 +1,15 @@
+## 0.3.6
+
+* doc update
+
+## 0.3.5
+
+* doc update
+
+## 0.3.4
+
+* doc update
+
 ## 0.3.3
 
 * doc update
