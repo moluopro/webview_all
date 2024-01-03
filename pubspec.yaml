@@ -13,17 +13,19 @@ platforms:
 
 environment:
   sdk: '>=2.17.2 <4.0.0'
-  flutter: ">=1.17.0"
+  flutter: ">=3.13.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  webview_flutter: ^4.2.2
+  webview_flutter: ^4.4.2
   flutter_web_plugins:
     sdk: flutter
-  webview_flutter_web: ^0.2.2+1
+  webview_flutter_web: ^0.2.2+3
   webview_flutter_platform_interface: ^2.4.0
-  webf: ^0.15.0-beta.3+2
+  webf: ^0.16.0-beta.2
+  webview_win_floating: ^2.2.2
+  abutil: ^0.1.2
 
 dev_dependencies:
   flutter_test:
