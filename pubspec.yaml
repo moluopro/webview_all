@@ -1,6 +1,6 @@
 name: webview_all
 description: a webview widget with full-platform support, based on the existing packages
-version: 0.3.7
+version: 0.4.1
 homepage: https://github.com/moluopro/webview_all
 
 platforms:
