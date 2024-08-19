@@ -1,3 +1,7 @@
+## 0.4.3
+
+* dep update
+
 ## 0.4.1
 
 * refactor
