@@ -1,3 +1,8 @@
+## 0.4.5
+
+* dep update  
+* bug fix
+
 ## 0.4.3
 
 * dep update
