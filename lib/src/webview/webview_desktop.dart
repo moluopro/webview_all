@@ -35,11 +35,8 @@ class _WebviewDesktopState extends State<WebviewDesktop> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        WebF(
-          controller: controller
-        ),
+        WebF(controller: controller),
       ],
     );
   }
 }
-
