@@ -6,19 +6,14 @@ class WebviewDesktop extends StatefulWidget {
   const WebviewDesktop({Key? key, required this.url}) : super(key: key);
 
   @override
-  State<WebviewDesktop> createState() => _WebviewDesktopState(url: url);
+  State<WebviewDesktop> createState() => _WebviewDesktopState();
 }
 
 class _WebviewDesktopState extends State<WebviewDesktop> {
-
-  final String url;
-  _WebviewDesktopState({required this.url});
-
   @override
   Widget build(BuildContext context) {
     return const Column(
-      children: [
-      ],
+      children: [],
     );
   }
 }

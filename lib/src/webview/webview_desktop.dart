@@ -7,27 +7,39 @@ class WebviewDesktop extends StatefulWidget {
   const WebviewDesktop({Key? key, required this.url}) : super(key: key);
 
   @override
-  // ignore: no_logic_in_create_state
-  State<WebviewDesktop> createState() => _WebviewDesktopState(url: url);
+  State<WebviewDesktop> createState() => _WebviewDesktopState();
 }
 
 class _WebviewDesktopState extends State<WebviewDesktop> {
+  late WebFController controller;
 
-  final String url;
-  _WebviewDesktopState({required this.url});
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    controller = WebFController(context);
+    controller.preload(WebFBundle.fromUrl(widget.url));
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final MediaQueryData queryData = MediaQuery.of(context);
-    final Size viewportSize = queryData.size;
     return Column(
       children: [
         WebF(
-          viewportWidth: viewportSize.width - queryData.padding.horizontal,
-          viewportHeight: viewportSize.height - queryData.padding.vertical,
-          bundle: WebFBundle.fromUrl(url),
+          controller: controller
         ),
       ],
     );
   }
 }
+
