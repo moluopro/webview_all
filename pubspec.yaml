@@ -1,6 +1,6 @@
 name: webview_all
 description: a webview widget with full-platform support, based on the existing packages
-version: 0.4.1
+version: 0.4.3
 homepage: https://github.com/moluopro/webview_all
 
 platforms:
@@ -23,7 +23,7 @@ dependencies:
     sdk: flutter
   webview_flutter_web: ^0.2.2+3
   webview_flutter_platform_interface: ^2.4.0
-  webf: ^0.16.0-beta.2
+  webf: ^0.16.2
   webview_win_floating: ^2.2.2
   abutil: ^0.1.2
 
