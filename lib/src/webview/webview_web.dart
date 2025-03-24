@@ -6,13 +6,13 @@
 // ignore_for_file: no_logic_in_create_state
 
 import 'package:flutter/material.dart';
-import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
 import 'package:webview_flutter_web/webview_flutter_web.dart';
+import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
 
 class WebviewWeb extends StatefulWidget {
   final String url;
 
-  const WebviewWeb({Key? key, required this.url}) : super(key: key);
+  const WebviewWeb({super.key, required this.url});
 
   @override
   State<WebviewWeb> createState() => _WebviewWebState(url: url);

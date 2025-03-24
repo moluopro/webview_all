@@ -5,4 +5,4 @@
 
 library webview_all;
 
-export './src/webview/webview.dart';
+export 'src/webview/webview.dart';

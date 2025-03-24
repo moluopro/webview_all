@@ -1,3 +1,7 @@
+## 0.5.2
+
+* doc update  
+
 ## 0.5.1
 
 * big dep update  

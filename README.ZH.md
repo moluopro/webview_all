@@ -9,7 +9,7 @@
 || Android  | ✅      | SDK 20+  |
 || IOS      | ✅      | SDK 9+   |
 || Web      | ✅      | Any      |
-|| Windows  | ✅      | Win 7+   |
+|| Windows  | ✅      | Win 10+  |
 || macOS    | ✅      | Any      |
 || Linux    | ✅      | Any      |
   
