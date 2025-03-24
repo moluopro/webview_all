@@ -1,67 +1,44 @@
-// ignore_for_file: no_logic_in_create_state
+/*
+ * Copyright (C) 2023-2025 moluopro. All rights reserved.
+ * Github: https://github.com/moluopro
+ */
 
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-// import 'package:webview_flutter_android/webview_flutter_android.dart';
-// import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
-
-class WebviewMobile extends StatefulWidget {
+class WebviewFlutter extends StatefulWidget {
   final String url;
   final Color backgroundColor;
   final JavaScriptMode javaScriptMode;
 
-  const WebviewMobile(
-      {super.key,
-      required this.url,
-      required this.backgroundColor,
-      required this.javaScriptMode});
+  const WebviewFlutter({
+    super.key,
+    required this.url,
+    required this.backgroundColor,
+    required this.javaScriptMode,
+  });
 
   @override
-  State<WebviewMobile> createState() => _WebviewMobileState(
-      url: url,
-      backgroundColor: backgroundColor,
-      javaScriptMode: javaScriptMode);
+  State<WebviewFlutter> createState() => _WebviewFlutterState();
 }
 
-class _WebviewMobileState extends State<WebviewMobile> {
-  final String url;
-  final Color backgroundColor;
-  final JavaScriptMode javaScriptMode;
-
-  _WebviewMobileState(
-      {required this.url,
-      required this.backgroundColor,
-      required this.javaScriptMode});
-
+class _WebviewFlutterState extends State<WebviewFlutter> {
   late final WebViewController _controller;
 
   @override
   void initState() {
     super.initState();
 
-    // #docregion platform_features
-    late final PlatformWebViewControllerCreationParams params;
-    // if (WebViewPlatform.instance is WebKitWebViewPlatform) {
-    //   params = WebKitWebViewControllerCreationParams(
-    //     allowsInlineMediaPlayback: true,
-    //     mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{},
-    //   );
-    // } else {
-    //   params = const PlatformWebViewControllerCreationParams();
-    // }
-    params = const PlatformWebViewControllerCreationParams();
-    final WebViewController controller =
-        WebViewController.fromPlatformCreationParams(params);
-    // #enddocregion platform_features
+    final params = const PlatformWebViewControllerCreationParams();
+    final controller = WebViewController.fromPlatformCreationParams(params);
 
     controller
-      ..setJavaScriptMode(javaScriptMode)
-      ..setBackgroundColor(backgroundColor)
+      ..setJavaScriptMode(widget.javaScriptMode)
+      ..setBackgroundColor(widget.backgroundColor)
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (int progress) {
-            debugPrint('WebView is loading (progress : $progress%)');
+            debugPrint('WebView loading progress: $progress%');
           },
           onPageStarted: (String url) {
             debugPrint('Page started loading: $url');
@@ -71,19 +48,15 @@ class _WebviewMobileState extends State<WebviewMobile> {
           },
           onWebResourceError: (WebResourceError error) {
             debugPrint('''
-Page resource error:
-  code: ${error.errorCode}
-  description: ${error.description}
-  errorType: ${error.errorType}
-  isForMainFrame: ${error.isForMainFrame}
-          ''');
+Web resource error:
+  Code: ${error.errorCode}
+  Description: ${error.description}
+  ErrorType: ${error.errorType}
+  IsMainFrame: ${error.isForMainFrame}
+''');
           },
           onNavigationRequest: (NavigationRequest request) {
-            // if (request.url.startsWith('https://www.youtube.com/')) {
-            //   debugPrint('blocking navigation to ${request.url}');
-            //   return NavigationDecision.prevent;
-            // }
-            debugPrint('allowing navigation to ${request.url}');
+            debugPrint('Navigating to ${request.url}');
             return NavigationDecision.navigate;
           },
         ),
@@ -96,15 +69,7 @@ Page resource error:
           );
         },
       )
-      ..loadRequest(Uri.parse(url));
-
-    // #docregion platform_features
-    // if (controller.platform is AndroidWebViewController) {
-    // AndroidWebViewController.enableDebugging(true);
-    //   (controller.platform as AndroidWebViewController)
-    //       .setMediaPlaybackRequiresUserGesture(false);
-    // }
-    // #enddocregion platform_features
+      ..loadRequest(Uri.parse(widget.url));
 
     _controller = controller;
   }

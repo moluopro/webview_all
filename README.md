@@ -13,7 +13,7 @@ a webview widget with full-platform support, based on the existing packages
 || macOS    | ✅      | Any      |
 || Linux    | ✅      | Any      |
   
-> ⚠: Linux and macOS platforms require more testing.  
+> ⚠: Linux platform requires more testing.  
 
 ### Quick Start  
 
@@ -68,10 +68,12 @@ Run `flutter run -d windows`, then you will see:
 
 ### Detail  
 
-On iOS the Webview widget is backed by a [WKWebView](https://developer.apple.com/documentation/webkit/wkwebview).  
+On `iOS/macOS` the Webview widget is backed by a [WKWebView](https://developer.apple.com/documentation/webkit/wkwebview).  
 
-On Android the Webview widget is backed by a [WebView](https://developer.android.com/reference/android/webkit/WebView).  
+On `Android` the Webview widget is backed by a [WebView](https://developer.android.com/reference/android/webkit/WebView).  
 
-On web the Webview widget will use the `webview_flutter_web` plugin.   
+On `Web` the Webview widget will use the `webview_flutter_web` plugin.   
 
-On desktop the Webview widget will use the `webf` plugin and only support less complex webpages.  
+On `Windows` the Webview widget will use the `webview_windows` plugin.   
+
+On `Linux` the Webview widget will use the `webview_cef` plugin.   

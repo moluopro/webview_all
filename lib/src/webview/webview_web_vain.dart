@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2023-2025 moluopro. All rights reserved.
+ * Github: https://github.com/moluopro
+ */
+
 // ignore_for_file: no_logic_in_create_state
 
 import 'package:flutter/material.dart';

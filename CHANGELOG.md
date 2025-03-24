@@ -1,3 +1,8 @@
+## 0.5.1
+
+* big dep update  
+* bug fix
+
 ## 0.4.5
 
 * dep update  

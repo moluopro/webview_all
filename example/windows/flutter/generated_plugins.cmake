@@ -3,7 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  webf
+  webview_windows
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST

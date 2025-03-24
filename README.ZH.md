@@ -13,7 +13,7 @@
 || macOS    | ✅      | Any      |
 || Linux    | ✅      | Any      |
   
-> ⚠：Linux和macOS平台还需要更多的测试。  
+> ⚠：Linux平台还需要更多的测试。  
 
 ### 快速开始  
 
@@ -68,10 +68,12 @@ class _MyBrowserState extends State<MyBrowser> {
 
 ### Detail  
 
-On iOS the Webview widget is backed by a [WKWebView](https://developer.apple.com/documentation/webkit/wkwebview).  
+On `iOS/macOS` the Webview widget is backed by a [WKWebView](https://developer.apple.com/documentation/webkit/wkwebview).  
 
-On Android the Webview widget is backed by a [WebView](https://developer.android.com/reference/android/webkit/WebView).  
+On `Android` the Webview widget is backed by a [WebView](https://developer.android.com/reference/android/webkit/WebView).  
 
-On web the Webview widget will use the `webview_flutter_web` plugin.   
+On `Web` the Webview widget will use the `webview_flutter_web` plugin.   
 
-On desktop the Webview widget will use the `webf` plugin and only support less complex webpages.  
+On `Windows` the Webview widget will use the `webview_windows` plugin.   
+
+On `Linux` the Webview widget will use the `webview_cef` plugin.   
