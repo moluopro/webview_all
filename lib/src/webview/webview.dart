@@ -4,14 +4,13 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:abutil/abutil.dart';
 
 import 'webview_flutter.dart';
-import 'package:webview_all/src/webview/webview_linux.dart';
-import 'package:webview_all/src/webview/webview_windows.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'webview_linux.dart';
+import 'webview_windows.dart';
 import 'webview_web.dart' if (dart.library.io) "webview_web_vain.dart";
-
-import 'package:abutil/abutil.dart';
 
 class Webview extends StatelessWidget {
   final String url;

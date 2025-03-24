@@ -35,7 +35,7 @@ class MyBrowserState extends State<MyBrowser> {
     return const Scaffold(
       body: Center(
         // Look here!
-        child: Webview(url: "https://www.bilibili.com"),
+        child: Webview(url: "https://pub.dev/packages/webview_all"),
       ),
     );
   }
