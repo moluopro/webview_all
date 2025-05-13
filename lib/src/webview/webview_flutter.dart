@@ -3,6 +3,7 @@
  * Github: https://github.com/moluopro
  */
 
+import 'package:abutil/abutil.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -32,9 +33,12 @@ class _WebviewFlutterState extends State<WebviewFlutter> {
     final params = const PlatformWebViewControllerCreationParams();
     final controller = WebViewController.fromPlatformCreationParams(params);
 
+    if (!isMacOS()) {
+      controller.setBackgroundColor(widget.backgroundColor);
+    }
+
     controller
       ..setJavaScriptMode(widget.javaScriptMode)
-      ..setBackgroundColor(widget.backgroundColor)
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (int progress) {
