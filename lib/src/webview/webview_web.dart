@@ -33,11 +33,7 @@ class _WebviewWebState extends State<WebviewWeb> {
   Widget build(BuildContext context) {
     final PlatformWebViewController controller = PlatformWebViewController(
       const PlatformWebViewControllerCreationParams(),
-    )..loadRequest(
-        LoadRequestParams(
-          uri: Uri.parse(url),
-        ),
-      );
+    )..loadRequest(LoadRequestParams(uri: Uri.parse(url)));
     return PlatformWebViewWidget(
       PlatformWebViewWidgetCreationParams(controller: controller),
     ).build(context);

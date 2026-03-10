@@ -21,16 +21,18 @@ class Webview extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isMobile() || isMacOS()) {
       return WebviewFlutter(
-          url: url,
-          backgroundColor: const Color(0x00000000),
-          javaScriptMode: JavaScriptMode.unrestricted);
+        url: url,
+        backgroundColor: const Color(0x00000000),
+        javaScriptMode: JavaScriptMode.unrestricted,
+      );
     } else if (isWeb()) {
       return WebviewWeb(url: url);
     } else if (isWindows()) {
       return WebviewWindows(
-          url: url,
-          backgroundColor: const Color(0x00000000),
-          javaScriptMode: JavaScriptMode.unrestricted);
+        url: url,
+        backgroundColor: const Color(0x00000000),
+        javaScriptMode: JavaScriptMode.unrestricted,
+      );
     } else if (isLinux()) {
       return WebviewLinux(url: url);
     } else {

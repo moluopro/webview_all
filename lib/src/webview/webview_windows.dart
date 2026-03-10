@@ -45,8 +45,6 @@ class _WebviewFlutterState extends State<WebviewWindows> {
 
   @override
   Widget build(BuildContext context) {
-    return Webview(
-      _controller,
-    );
+    return Webview(_controller);
   }
 }
