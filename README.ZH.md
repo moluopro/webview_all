@@ -2,14 +2,14 @@
 
 支持所有Flutter平台的Webview组件。
 
-- 在 iOS 上，WebView 组件基于 [WKWebView](https://developer.apple.com/documentation/webkit/wkwebview)。
-- 在 Android 上，WebView 组件基于 [WebView](https://developer.android.com/reference/android/webkit/WebView)。
-- 在 Windows 上，WebView 组件基于 [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/)。
-- 在 Linux 上，WebView 组件基于 [WebKitGTK](https://webkitgtk.org/)。
-
-|             | Android | iOS   | macOS  | Windows |
-|-------------|---------|-------|--------|---------|
-| **支持情况** | SDK 24+ | 13.0+ | 10.15+ | WebView2 |
+|     系统     | **支持情况** | **技术实现** |
+|-------------|--------------|--------------|
+|Android|SDK 24+|[WebView](https://developer.android.com/reference/android/webkit/WebView)|
+|iOS|13.0+|[WKWebView](https://developer.apple.com/documentation/webkit/wkwebview)|
+|Windows|Windows 10 1809+|[WebView2](https://developer.microsoft.com/microsoft-edge/webview2)|
+|macOS|10.15+|[WKWebView](https://developer.apple.com/documentation/webkit/wkwebview)|
+|Linux|WIT*|[WebKitGTK](https://webkitgtk.org)|
+|Web|Any|[js-interop](https://dart.dev/interop/js-interop)|
 
 
 ## 用法
@@ -24,7 +24,7 @@ controller = WebViewController()
   ..setNavigationDelegate(
     NavigationDelegate(
       onProgress: (int progress) {
-        // 更新加载进度条。
+        // 更新加载进度条
       },
       onPageStarted: (String url) {},
       onPageFinished: (String url) {},
