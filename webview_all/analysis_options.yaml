@@ -1,0 +1,4 @@
+analyzer:
+  exclude:
+    - lib/src/legacy/**
+    - lib/src/webview_flutter_legacy.dart

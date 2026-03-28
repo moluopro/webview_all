@@ -1,0 +1,33 @@
+name: webview_all_windows
+version: 0.5.1
+description: A Flutter plugin that provides a WebView widget on Windows.
+repository: https://github.com/moluopro/webview_all
+homepage: https://github.com/moluopro/webview_all
+
+environment:
+  sdk: ^3.9.0
+  flutter: ">=3.35.0"
+
+flutter:
+  plugin:
+    implements: webview_all
+    platforms:
+      windows:
+        pluginClass: WebviewWindowsPlugin
+        dartPluginClass: WindowsWebViewPlatform
+
+dependencies:
+  flutter:
+    sdk: flutter
+  path: ^1.9.1
+  webview_flutter_platform_interface: ^2.15.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+topics:
+  - html
+  - webview
+  - windows
+  - webview-flutter

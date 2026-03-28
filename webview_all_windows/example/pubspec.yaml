@@ -1,0 +1,23 @@
+name: webview_all_windows_example
+description: Demonstrates how to use the webview_all_windows plugin.
+
+publish_to: 'none'
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  webview_all:
+    path: ../../webview_all
+  webview_all_windows:
+    path: ../
+  window_manager: ^0.5.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
