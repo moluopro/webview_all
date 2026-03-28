@@ -15,6 +15,14 @@ dependencies:
   webview_flutter_android: ^4.10.15
   webview_flutter_wkwebview: ^3.24.2
 
+dependency_overrides:
+  webview_all_linux:
+    path: ../../../webview_all_linux
+  webview_all_windows:
+    path: ../../../webview_all_windows
+  webview_all_web:
+    path: ../../../webview_all_web
+
 dev_dependencies:
   build_runner: ^2.13.1
   flutter_test:

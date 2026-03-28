@@ -1,3 +1,7 @@
+## 1.0.0
+
+* add linux support
+
 ## 0.9.3
 
 * bug fix

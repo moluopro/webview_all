@@ -227,23 +227,28 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "0.9.1"
+    version: "0.9.3"
+  webview_all_linux:
+    dependency: "direct overridden"
+    description:
+      path: "../../webview_all_linux"
+      relative: true
+    source: path
+    version: "0.5.2"
   webview_all_web:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: webview_all_web
-      sha256: "0d8feafda4aa11ea2474b1b93fcc7cff354d3a85535cad63c361d61f552684d2"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.3.1"
+      path: "../../webview_all_web"
+      relative: true
+    source: path
+    version: "0.5.2"
   webview_all_windows:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: webview_all_windows
-      sha256: "92e4fa299cb5216492704e8ef7d1270a8add821b27ff008cffd18e5f311b7865"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.5.1"
+      path: "../../webview_all_windows"
+      relative: true
+    source: path
+    version: "0.5.2"
   webview_flutter_android:
     dependency: transitive
     description:
