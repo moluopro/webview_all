@@ -122,6 +122,55 @@ If you want users to use Material Components when interacting with input control
 
 Currently, when making POST requests through `WebViewController.loadRequest` on Android, setting custom request headers is not yet supported. If you need this capability, one workaround is to make the request manually and then load the response content through `loadHtmlString`.
 
+### Linux Setup
+
+Linux apps need one small change so `WebViewWidget` can be hosted in a `GtkOverlay`.
+
+Edit `linux/runner/my_application.cc`: 
+
+1. Add:
+
+```cc
+static void first_frame_cb(MyApplication* self, FlView* view) {
+  gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
+}
+```
+
+2. Then replace the default runner part:
+
+```cpp
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  fl_dart_project_set_dart_entrypoint_arguments(
+      project, self->dart_entrypoint_arguments);
+
+  gtk_widget_show(GTK_WIDGET(window));
+
+  FlView* view = fl_view_new(project);
+  gtk_widget_show(GTK_WIDGET(view));
+  gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
+
+  fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+```
+
+with:
+
+```cpp
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  fl_dart_project_set_dart_entrypoint_arguments(
+      project, self->dart_entrypoint_arguments);
+
+  FlView* view = fl_view_new(project);
+  gtk_widget_show(GTK_WIDGET(view));
+
+  GtkWidget* overlay = gtk_overlay_new();
+  gtk_widget_show(overlay);
+  gtk_container_add(GTK_CONTAINER(overlay), GTK_WIDGET(view));
+  gtk_container_add(GTK_CONTAINER(window), overlay);
+
+  g_signal_connect_swapped(view, "first-frame", G_CALLBACK(first_frame_cb), self);
+  gtk_widget_realize(GTK_WIDGET(view));
+```
+
 ### Known Limitations
 
 * Some APIs are missing on the macOS platform.

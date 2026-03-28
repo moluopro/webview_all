@@ -122,6 +122,55 @@ https://pub.dev/documentation/webview_flutter_wkwebview/latest/webview_flutter_w
 
 目前，在 Android 上通过 `WebViewController.loadRequest` 发起 POST 请求时，还不支持设置自定义请求头。如果你需要这个能力，一种变通方案是手动发起请求，然后再通过 `loadHtmlString` 加载响应内容。
 
+### Linux 设置
+
+Linux平台需要修改代码使得 `WebViewWidget` 能在 `GtkOverlay` 正确加载。
+
+编辑您项目里的 `linux/runner/my_application.cc` 即可：
+
+1. 在靠前的位置添加函数:
+
+```cc
+static void first_frame_cb(MyApplication* self, FlView* view) {
+  gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
+}
+```
+
+2. 找到以下代码:
+
+```cpp
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  fl_dart_project_set_dart_entrypoint_arguments(
+      project, self->dart_entrypoint_arguments);
+
+  gtk_widget_show(GTK_WIDGET(window));
+
+  FlView* view = fl_view_new(project);
+  gtk_widget_show(GTK_WIDGET(view));
+  gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
+
+  fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+```
+
+替换为:
+
+```cpp
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  fl_dart_project_set_dart_entrypoint_arguments(
+      project, self->dart_entrypoint_arguments);
+
+  FlView* view = fl_view_new(project);
+  gtk_widget_show(GTK_WIDGET(view));
+
+  GtkWidget* overlay = gtk_overlay_new();
+  gtk_widget_show(overlay);
+  gtk_container_add(GTK_CONTAINER(overlay), GTK_WIDGET(view));
+  gtk_container_add(GTK_CONTAINER(window), overlay);
+
+  g_signal_connect_swapped(view, "first-frame", G_CALLBACK(first_frame_cb), self);
+  gtk_widget_realize(GTK_WIDGET(view));
+```
+
 ### 已知的限制
 
 * macOS 平台缺失了部分API。
