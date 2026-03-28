@@ -1,3 +1,7 @@
+## 0.9.2
+
+* bug fix
+
 ## 0.9.1
 
 * refactor: breaking changes

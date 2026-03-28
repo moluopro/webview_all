@@ -507,14 +507,14 @@ packages:
       path: "../webview_all_web"
       relative: true
     source: path
-    version: "0.3.1"
+    version: "0.3.2"
   webview_all_windows:
     dependency: "direct main"
     description:
       path: "../webview_all_windows"
       relative: true
     source: path
-    version: "0.5.1"
+    version: "0.5.2"
   webview_flutter_android:
     dependency: "direct main"
     description:
