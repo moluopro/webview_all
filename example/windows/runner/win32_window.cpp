@@ -1,7 +1,3 @@
-// Copyright 2014 The Flutter Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
-
 #include "win32_window.h"
 
 #include <dwmapi.h>
@@ -53,8 +49,8 @@ void EnableFullDpiSupportIfAvailable(HWND hwnd) {
           GetProcAddress(user32_module, "EnableNonClientDpiScaling"));
   if (enable_non_client_dpi_scaling != nullptr) {
     enable_non_client_dpi_scaling(hwnd);
-    FreeLibrary(user32_module);
   }
+  FreeLibrary(user32_module);
 }
 
 }  // namespace

@@ -1,6 +1,0 @@
-#ifndef FLUTTER_PLUGIN_WEBVIEW_ALL_WINDOWS_PLUGIN_H_
-#define FLUTTER_PLUGIN_WEBVIEW_ALL_WINDOWS_PLUGIN_H_
-
-#include "../webview_windows/webview_windows_plugin.h"
-
-#endif  // FLUTTER_PLUGIN_WEBVIEW_ALL_WINDOWS_PLUGIN_H_
