@@ -1,5 +1,5 @@
 name: webview_all
-version: 1.0.2
+version: 1.0.3
 description: A Flutter plugin that provides a WebView widget with full-platform support.
 repository: https://github.com/moluopro/webview_all
 homepage: https://github.com/moluopro/webview_all
@@ -38,7 +38,7 @@ dependencies:
   webview_flutter_android: ^4.10.15
   webview_flutter_wkwebview: ^3.24.2
   webview_flutter_platform_interface: ^2.15.1
-  webview_all_linux: ^0.5.3
+  webview_all_linux: ^0.5.4
   webview_all_windows: ^0.5.2
   webview_all_web: ^0.5.2
 
