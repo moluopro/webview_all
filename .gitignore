@@ -1,0 +1,122 @@
+# macOS / editor
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+.history/
+.buildlog/
+migrate_working_dir/
+
+# Dart / Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+.pub-cache/
+build/
+coverage/
+**/doc/api/
+**/ios/Flutter/.last_build_id
+lib/generated_plugin_registrant.dart
+
+# Flutter package lock files. Example applications may keep their locks.
+/webview_all/pubspec.lock
+/webview_all_linux/pubspec.lock
+/webview_all_ohos/pubspec.lock
+/webview_all_web/pubspec.lock
+/webview_all_windows/pubspec.lock
+
+# Generated Flutter desktop/mobile build artifacts
+**/flutter/ephemeral/
+**/Flutter/ephemeral/
+**/Flutter/Generated.xcconfig
+**/Flutter/flutter_export_environment.sh
+**/Flutter/App.framework
+**/Flutter/Flutter.framework
+**/Flutter/Flutter.podspec
+**/Flutter/app.flx
+**/Flutter/app.zip
+**/Flutter/flutter_assets/
+**/ServiceDefinitions.json
+**/GeneratedPluginRegistrant.*
+
+# Android
+**/.gradle/
+**/.cxx/
+**/captures/
+**/local.properties
+**/key.properties
+**/*.jks
+**/*.keystore
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+
+# Apple platforms
+**/Pods/
+**/.symlinks/
+**/DerivedData/
+**/xcuserdata/
+**/*.xcuserstate
+**/*.pbxuser
+**/*.mode1v3
+**/*.mode2v3
+**/*.perspectivev3
+**/*.moved-aside
+
+# Windows / Visual Studio
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.VC.db
+*.VC.VC.opendb
+ipch/
+x64/
+x86/
+out/
+packages/
+*.[Cc]ache
+!*.[Cc]ache/
+
+# Linux native builds
+*.o
+*.so
+*.a
+cmake-build-*/
+
+# OpenHarmony / DevEco / Hvigor
+**/oh_modules/
+**/node_modules/
+**/.hvigor/
+**/.preview/
+**/.test/
+**/oh-package-lock.json5
+**/BuildProfile.ets
+**/*.har
+**/entry/libs/arm64-v8a/libflutter.so
+**/entry/src/main/resources/rawfile/flutter_assets/
+
+# Dart build outputs
+app.*.symbols
+app.*.map.json
+
+# Python/cache noise occasionally produced by tooling
+*.pyc
+__pycache__/
+
+FORME/
