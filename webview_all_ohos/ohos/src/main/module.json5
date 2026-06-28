@@ -1,0 +1,9 @@
+{
+  "module": {
+    "name": "webview_all_ohos",
+    "type": "har",
+    "deviceTypes": [
+      "default"
+    ]
+  }
+}

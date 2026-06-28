@@ -1,0 +1,138 @@
+import { BinaryMessenger } from '@ohos/flutter_ohos/src/main/ets/plugin/common/BinaryMessenger';
+import { HttpAuthHandlerFlutterApiImpl } from './HttpAuthHandlerFlutterApiImpl';
+import { InstanceManager } from './InstanceManager';
+import { HttpAuthHandler, OhosWebViewCallbackApiChannel, Reply, emptyReply } from './OhosWebViewCallbackApiChannel';
+import { WebViewClient } from './WebViewClientHostApiImpl';
+import { WebViewFlutterApiImpl } from './WebViewFlutterApiImpl';
+import { WebViewPlatformView } from './WebViewPlatformView';
+
+export class WebViewClientFlutterApiImpl {
+  private binaryMessenger: BinaryMessenger;
+  private instanceManager: InstanceManager;
+  private webViewFlutterApi: WebViewFlutterApiImpl;
+  private callbackApi: OhosWebViewCallbackApiChannel;
+
+  constructor(binaryMessenger: BinaryMessenger, instanceManager: InstanceManager) {
+    this.binaryMessenger = binaryMessenger;
+    this.instanceManager = instanceManager;
+    this.webViewFlutterApi = new WebViewFlutterApiImpl(binaryMessenger, instanceManager);
+    this.callbackApi = new OhosWebViewCallbackApiChannel(binaryMessenger);
+  }
+
+  onPageStartedImpl(
+    webViewClient: WebViewClient,
+    webView: WebViewPlatformView,
+    url: string,
+    callback?: Reply<void>
+  ): void {
+    this.webViewFlutterApi.create(webView, emptyReply<void>());
+    this.callbackApi.invoke('WebViewClient.onPageStarted', this.baseArgs(webViewClient, webView)
+      .set('url', url), callback);
+  }
+
+  onPageFinishedImpl(
+    webViewClient: WebViewClient,
+    webView: WebViewPlatformView,
+    url: string,
+    callback?: Reply<void>
+  ): void {
+    this.webViewFlutterApi.create(webView, emptyReply<void>());
+    this.callbackApi.invoke('WebViewClient.onPageFinished', this.baseArgs(webViewClient, webView)
+      .set('url', url), callback);
+  }
+
+  onReceivedRequestErrorImpl(
+    webViewClient: WebViewClient,
+    webView: WebViewPlatformView,
+    request: WebResourceRequest,
+    error: WebResourceError,
+    callback?: Reply<void>
+  ): void {
+    this.webViewFlutterApi.create(webView, emptyReply<void>());
+    this.callbackApi.invoke('WebViewClient.onReceivedRequestError', this.baseArgs(webViewClient, webView)
+      .set('request', WebViewClientFlutterApiImpl.createWebResourceRequestData(request))
+      .set('error', WebViewClientFlutterApiImpl.createWebResourceErrorData(error)), callback);
+  }
+
+  requestLoadingImpl(
+    webViewClient: WebViewClient,
+    webView: WebViewPlatformView,
+    request: WebResourceRequest,
+    callback?: Reply<void>
+  ): void {
+    this.webViewFlutterApi.create(webView, emptyReply<void>());
+    this.callbackApi.invoke('WebViewClient.requestLoading', this.baseArgs(webViewClient, webView)
+      .set('request', WebViewClientFlutterApiImpl.createWebResourceRequestData(request)), callback);
+  }
+
+  doUpdateVisitedHistoryImpl(
+    webViewClient: WebViewClient,
+    webView: WebViewPlatformView,
+    url: string,
+    isReload: boolean,
+    callback?: Reply<void>
+  ): void {
+    this.webViewFlutterApi.create(webView, emptyReply<void>());
+    this.callbackApi.invoke('WebViewClient.doUpdateVisitedHistory', this.baseArgs(webViewClient, webView)
+      .set('url', url)
+      .set('isReload', isReload), callback);
+  }
+
+  onReceivedHttpAuthRequestImpl(
+    webViewClient: WebViewClient,
+    webView: WebViewPlatformView,
+    httpAuthHandler: HttpAuthHandler,
+    host: string,
+    realm: string,
+    callback?: Reply<void>
+  ): void {
+    new HttpAuthHandlerFlutterApiImpl(this.binaryMessenger, this.instanceManager)
+      .create(httpAuthHandler, emptyReply<void>());
+
+    this.callbackApi.invoke('WebViewClient.onReceivedHttpAuthRequest', this.baseArgs(webViewClient, webView)
+      .set('httpAuthHandlerInstanceId', this.instanceManager.getIdentifier(httpAuthHandler))
+      .set('host', host)
+      .set('realm', realm), callback);
+  }
+
+  private baseArgs(webViewClient: WebViewClient, webView: WebViewPlatformView): Map<string, ESObject> {
+    return new Map<string, ESObject>()
+      .set('instanceId', this.getIdentifierForClient(webViewClient))
+      .set('webViewInstanceId', this.instanceManager.getIdentifier(webView));
+  }
+
+  private getIdentifierForClient(webViewClient: WebViewClient): number {
+    const identifier: number = this.instanceManager.getIdentifier(webViewClient);
+    if (identifier == null) {
+      throw new Error('Could not find identifier for WebViewClient.');
+    }
+    return identifier;
+  }
+
+  static createWebResourceErrorData(error: WebResourceError): Map<string, ESObject> {
+    return new Map<string, ESObject>()
+      .set('errorCode', error.getErrorCode())
+      .set('description', error.getErrorInfo());
+  }
+
+  static createWebResourceRequestData(request: WebResourceRequest): Map<string, ESObject> {
+    return new Map<string, ESObject>()
+      .set('url', request.getRequestUrl())
+      .set('isForMainFrame', request.isMainFrame())
+      .set('isRedirect', request.isRedirect())
+      .set('hasGesture', request.isRequestGesture())
+      .set('method', request.getRequestMethod())
+      .set('requestHeaders', WebViewClientFlutterApiImpl.toWebHeadersMap(request.getRequestHeader()));
+  }
+
+  static toWebHeadersMap(headers: Array<Header>): Map<string, string> {
+    const headersMap: Map<string, string> = new Map();
+    if (headers == null || headers.length === 0) {
+      return headersMap;
+    }
+    for (const header of headers) {
+      headersMap.set(header.headerKey, header.headerValue);
+    }
+    return headersMap;
+  }
+}

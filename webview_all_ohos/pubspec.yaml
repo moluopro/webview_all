@@ -1,0 +1,28 @@
+name: webview_all_ohos
+description: OpenHarmony implementation of the webview_all federated WebView plugin.
+repository: https://github.com/moluopro/webview_all
+homepage: https://github.com/moluopro/webview_all
+issue_tracker: https://github.com/moluopro/webview_all/issues
+version: 1.1.0
+
+environment:
+  sdk: ">=2.19.0 <4.0.0"
+  flutter: ">=3.7.0"
+
+flutter:
+  plugin:
+    implements: webview_all
+    platforms:
+      ohos:
+        package: com.abandoft.webview_all_ohos
+        pluginClass: WebViewFlutterPlugin
+        dartPluginClass: OhosWebViewPlatform
+
+dependencies:
+  flutter:
+    sdk: flutter
+  webview_flutter_platform_interface: ^2.15.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

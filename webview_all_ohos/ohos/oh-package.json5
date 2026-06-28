@@ -1,0 +1,12 @@
+
+{
+  "name": "webview_all_ohos",
+  "version": "1.0.0",
+  "description": "OpenHarmony implementation of the webview_all federated WebView plugin.",
+  "main": "Index.ets",
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@ohos/flutter_ohos": "file:libs/flutter.har"
+  }
+}
