@@ -1,3 +1,9 @@
+## 1.1.1
+
+* Update the example app to use `abutil` for platform detection.
+* Simplify the example app's OHOS and Web platform branches.
+* Synchronize platform package license files with the main package license.
+
 ## 1.1.0
 
 * Add OpenHarmony platform implementation support.
