@@ -1,6 +1,6 @@
 # WebView All
 
-[English](https://github.com/moluopro/webview_all/blob/main/webview_all/README.md) | [中文文档](https://github.com/moluopro/webview_all/blob/main/webview_all/README-ZH.md)
+[English](https://github.com/abandoft/webview_all/blob/main/webview_all/README.md) | [中文文档](https://github.com/abandoft/webview_all/blob/main/webview_all/README-ZH.md)
 
 支持所有 Flutter 平台的 WebView 组件，遵守 [webview_flutter 平台接口](https://pub.dev/packages/webview_flutter_platform_interface)。
 
