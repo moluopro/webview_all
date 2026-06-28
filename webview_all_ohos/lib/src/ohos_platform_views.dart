@@ -2,6 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// The OHOS Flutter SDK exposes these platform view APIs, while upstream
+// Flutter does not.
+// ignore_for_file: undefined_class, undefined_method
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
