@@ -1,0 +1,502 @@
+#include "plugin/webview_all_linux_plugin_private.h"
+#include "common/method_channel_utils.h"
+#include "webview/webview_internal.h"
+
+#include <libsoup/soup.h>
+
+#include <cmath>
+#include <cstring>
+
+static void destroy_pending_tls_error(gpointer data) {
+  PendingTlsError* error = static_cast<PendingTlsError*>(data);
+  if (error == nullptr) {
+    return;
+  }
+  g_clear_object(&error->certificate);
+  g_free(error->host);
+  g_free(error->uri);
+  g_free(error);
+}
+
+static void destroy_pending_navigation_decision(gpointer data) {
+  PendingNavigationDecision* pending =
+      static_cast<PendingNavigationDecision*>(data);
+  if (pending == nullptr) {
+    return;
+  }
+  g_clear_object(&pending->decision);
+  g_free(pending->uri);
+  g_free(pending);
+}
+
+void send_event(LinuxWebView* webview, FlValue* event) {
+  if (!webview->event_listening) {
+    fl_value_unref(event);
+    return;
+  }
+
+  GError* error = nullptr;
+  fl_event_channel_send(webview->event_channel, event, nullptr, &error);
+  if (error != nullptr) {
+    g_warning("Failed to send event: %s", error->message);
+    g_clear_error(&error);
+  }
+  fl_value_unref(event);
+}
+
+static gint next_request_id(LinuxWebView* webview) {
+  return webview->next_request_id++;
+}
+
+static gboolean decide_policy_cb(WebKitWebView* widget,
+                                 WebKitPolicyDecision* decision,
+                                 WebKitPolicyDecisionType type,
+                                 gpointer user_data) {
+  if (type != WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION &&
+      type != WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION) {
+    return FALSE;
+  }
+
+  LinuxWebView* webview = static_cast<LinuxWebView*>(user_data);
+  WebKitNavigationPolicyDecision* navigation_decision =
+      WEBKIT_NAVIGATION_POLICY_DECISION(decision);
+  WebKitNavigationAction* navigation_action =
+      webkit_navigation_policy_decision_get_navigation_action(
+          navigation_decision);
+  WebKitURIRequest* request =
+      webkit_navigation_action_get_request(navigation_action);
+  const gchar* uri = webkit_uri_request_get_uri(request);
+
+  if (type == WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION &&
+      (!webview->event_listening || uri == nullptr || *uri == '\0')) {
+    if (uri != nullptr && *uri != '\0') {
+      webkit_web_view_load_uri(widget, uri);
+      webkit_policy_decision_ignore(decision);
+      return TRUE;
+    }
+    return FALSE;
+  }
+  if (!webview->event_listening) {
+    return FALSE;
+  }
+
+  gint request_id = next_request_id(webview);
+  PendingNavigationDecision* pending = g_new0(PendingNavigationDecision, 1);
+  pending->decision = WEBKIT_POLICY_DECISION(g_object_ref(decision));
+  pending->uri = g_strdup(uri);
+  pending->open_in_place =
+      type == WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION;
+  g_hash_table_insert(webview->pending_nav_decisions, GINT_TO_POINTER(request_id),
+                      pending);
+
+  FlValue* event = make_event("navigationRequest");
+  fl_value_set_string_take(event, "requestId", fl_value_new_int(request_id));
+  fl_value_set_string_take(event, "url",
+                           fl_value_new_string(uri != nullptr ? uri : ""));
+  fl_value_set_string_take(event, "isMainFrame", fl_value_new_bool(true));
+  send_event(webview, event);
+  return TRUE;
+}
+
+static void load_changed_cb(WebKitWebView* widget,
+                            WebKitLoadEvent load_event,
+                            gpointer user_data) {
+  LinuxWebView* webview = static_cast<LinuxWebView*>(user_data);
+  const gchar* uri = webkit_web_view_get_uri(widget);
+  switch (load_event) {
+    case WEBKIT_LOAD_STARTED: {
+      FlValue* event = make_event("pageStarted");
+      fl_value_set_string_take(event, "url",
+                               fl_value_new_string(uri != nullptr ? uri : ""));
+      send_event(webview, event);
+      break;
+    }
+    case WEBKIT_LOAD_FINISHED: {
+      FlValue* event = make_event("pageFinished");
+      fl_value_set_string_take(event, "url",
+                               fl_value_new_string(uri != nullptr ? uri : ""));
+      send_event(webview, event);
+      break;
+    }
+    default:
+      break;
+  }
+  emit_url_change(webview);
+  update_history(webview);
+}
+
+static void notify_progress_cb(WebKitWebView* widget,
+                               GParamSpec* pspec,
+                               gpointer user_data) {
+  LinuxWebView* webview = static_cast<LinuxWebView*>(user_data);
+  FlValue* event = make_event("progress");
+  fl_value_set_string_take(
+      event, "progress",
+      fl_value_new_int(static_cast<gint>(
+          webkit_web_view_get_estimated_load_progress(widget) * 100.0)));
+  send_event(webview, event);
+}
+
+static void notify_uri_cb(WebKitWebView* widget,
+                          GParamSpec* pspec,
+                          gpointer user_data) {
+  emit_url_change(static_cast<LinuxWebView*>(user_data));
+}
+
+static void notify_title_cb(WebKitWebView* widget,
+                            GParamSpec* pspec,
+                            gpointer user_data) {
+  emit_title_change(static_cast<LinuxWebView*>(user_data));
+}
+
+static gboolean load_failed_cb(WebKitWebView* widget,
+                               WebKitLoadEvent load_event,
+                               const gchar* failing_url,
+                               GError* error,
+                               gpointer user_data) {
+  if (error != nullptr && error->domain == webkit_network_error_quark() &&
+      error->code == WEBKIT_NETWORK_ERROR_CANCELLED) {
+    return FALSE;
+  }
+  emit_load_error(static_cast<LinuxWebView*>(user_data), error, failing_url);
+  return FALSE;
+}
+
+static gboolean authenticate_cb(WebKitWebView* widget,
+                                WebKitAuthenticationRequest* request,
+                                gpointer user_data) {
+  LinuxWebView* webview = static_cast<LinuxWebView*>(user_data);
+  if (!webview->event_listening) {
+    return FALSE;
+  }
+
+  gint request_id = next_request_id(webview);
+  g_hash_table_insert(webview->pending_auth_requests, GINT_TO_POINTER(request_id),
+                      g_object_ref(request));
+
+  FlValue* event = make_event("httpAuthRequest");
+  fl_value_set_string_take(event, "requestId", fl_value_new_int(request_id));
+  fl_value_set_string_take(
+      event, "host",
+      fl_value_new_string(webkit_authentication_request_get_host(request) !=
+                                  nullptr
+                              ? webkit_authentication_request_get_host(request)
+                              : ""));
+  const gchar* realm = webkit_authentication_request_get_realm(request);
+  if (realm != nullptr) {
+    fl_value_set_string_take(event, "realm", fl_value_new_string(realm));
+  }
+  send_event(webview, event);
+  return TRUE;
+}
+
+static gboolean permission_request_cb(WebKitWebView* widget,
+                                      WebKitPermissionRequest* request,
+                                      gpointer user_data) {
+  LinuxWebView* webview = static_cast<LinuxWebView*>(user_data);
+  if (!webview->event_listening) {
+    return FALSE;
+  }
+
+  gint request_id = next_request_id(webview);
+  g_hash_table_insert(webview->pending_permission_requests,
+                      GINT_TO_POINTER(request_id), g_object_ref(request));
+
+  FlValue* event = make_event("permissionRequest");
+  FlValue* types = fl_value_new_list();
+  if (WEBKIT_IS_USER_MEDIA_PERMISSION_REQUEST(request)) {
+    WebKitUserMediaPermissionRequest* media_request =
+        WEBKIT_USER_MEDIA_PERMISSION_REQUEST(request);
+    if (webkit_user_media_permission_is_for_video_device(media_request)) {
+      fl_value_append_take(types, fl_value_new_string("camera"));
+    }
+    if (webkit_user_media_permission_is_for_audio_device(media_request)) {
+      fl_value_append_take(types, fl_value_new_string("microphone"));
+    }
+  }
+  fl_value_set_string_take(event, "requestId", fl_value_new_int(request_id));
+  fl_value_set_string_take(event, "types", types);
+  send_event(webview, event);
+  return TRUE;
+}
+
+static const gchar* script_dialog_type_name(WebKitScriptDialogType type) {
+  switch (type) {
+    case WEBKIT_SCRIPT_DIALOG_ALERT:
+      return "alert";
+    case WEBKIT_SCRIPT_DIALOG_CONFIRM:
+      return "confirm";
+    case WEBKIT_SCRIPT_DIALOG_PROMPT:
+      return "prompt";
+    case WEBKIT_SCRIPT_DIALOG_BEFORE_UNLOAD_CONFIRM:
+      return "beforeUnloadConfirm";
+  }
+  return "alert";
+}
+
+static gboolean script_dialog_cb(WebKitWebView* widget,
+                                 WebKitScriptDialog* dialog,
+                                 gpointer user_data) {
+  LinuxWebView* webview = static_cast<LinuxWebView*>(user_data);
+  if (!webview->event_listening) {
+    return FALSE;
+  }
+
+  gint request_id = next_request_id(webview);
+  g_hash_table_insert(webview->pending_script_dialogs,
+                      GINT_TO_POINTER(request_id),
+                      webkit_script_dialog_ref(dialog));
+
+  FlValue* event = make_event("javaScriptDialog");
+  fl_value_set_string_take(event, "requestId", fl_value_new_int(request_id));
+  fl_value_set_string_take(
+      event, "dialogType",
+      fl_value_new_string(
+          script_dialog_type_name(webkit_script_dialog_get_dialog_type(dialog))));
+  fl_value_set_string_take(
+      event, "message",
+      fl_value_new_string(webkit_script_dialog_get_message(dialog) != nullptr
+                              ? webkit_script_dialog_get_message(dialog)
+                              : ""));
+  const gchar* default_text =
+      webkit_script_dialog_prompt_get_default_text(dialog);
+  if (default_text != nullptr) {
+    fl_value_set_string_take(event, "defaultText",
+                             fl_value_new_string(default_text));
+  }
+  const gchar* uri = webkit_web_view_get_uri(widget);
+  fl_value_set_string_take(event, "url",
+                           fl_value_new_string(uri != nullptr ? uri : ""));
+  send_event(webview, event);
+  return TRUE;
+}
+
+static gchar* describe_tls_error(const gchar* uri,
+                                 const gchar* host,
+                                 GTlsCertificateFlags errors) {
+  GString* description = g_string_new("TLS certificate error");
+  if (host != nullptr && *host != '\0') {
+    g_string_append_printf(description, " for %s", host);
+  }
+  if (uri != nullptr && *uri != '\0') {
+    g_string_append_printf(description, " while loading %s", uri);
+  }
+  if (errors != 0) {
+    g_string_append(description, ".");
+  }
+  if (errors & G_TLS_CERTIFICATE_UNKNOWN_CA) {
+    g_string_append(description, " Unknown certificate authority.");
+  }
+  if (errors & G_TLS_CERTIFICATE_BAD_IDENTITY) {
+    g_string_append(description, " Certificate does not match host.");
+  }
+  if (errors & G_TLS_CERTIFICATE_NOT_ACTIVATED) {
+    g_string_append(description, " Certificate is not yet valid.");
+  }
+  if (errors & G_TLS_CERTIFICATE_EXPIRED) {
+    g_string_append(description, " Certificate has expired.");
+  }
+  if (errors & G_TLS_CERTIFICATE_REVOKED) {
+    g_string_append(description, " Certificate has been revoked.");
+  }
+  if (errors & G_TLS_CERTIFICATE_INSECURE) {
+    g_string_append(description, " Certificate uses an insecure algorithm.");
+  }
+  if (errors & G_TLS_CERTIFICATE_GENERIC_ERROR) {
+    g_string_append(description, " Certificate validation failed.");
+  }
+  return g_string_free(description, FALSE);
+}
+
+static gboolean load_failed_with_tls_errors_cb(WebKitWebView* widget,
+                                               const gchar* failing_uri,
+                                               GTlsCertificate* certificate,
+                                               GTlsCertificateFlags errors,
+                                               gpointer user_data) {
+  LinuxWebView* webview = static_cast<LinuxWebView*>(user_data);
+  if (!webview->event_listening) {
+    return FALSE;
+  }
+
+  gchar* host = nullptr;
+  if (failing_uri != nullptr) {
+    GUri* uri = g_uri_parse(failing_uri, G_URI_FLAGS_NONE, nullptr);
+    if (uri != nullptr) {
+      host = g_strdup(g_uri_get_host(uri));
+      g_uri_unref(uri);
+    }
+  }
+
+  PendingTlsError* pending = g_new0(PendingTlsError, 1);
+  pending->certificate =
+      certificate != nullptr ? G_TLS_CERTIFICATE(g_object_ref(certificate))
+                             : nullptr;
+  pending->host = host;
+  pending->uri = g_strdup(failing_uri);
+
+  gint request_id = next_request_id(webview);
+  g_hash_table_insert(webview->pending_tls_errors, GINT_TO_POINTER(request_id),
+                      pending);
+
+  FlValue* event = make_event("sslAuthError");
+  fl_value_set_string_take(event, "requestId", fl_value_new_int(request_id));
+  gchar* description = describe_tls_error(failing_uri, host, errors);
+  fl_value_set_string_take(event, "description",
+                           fl_value_new_string(description));
+  g_free(description);
+  if (failing_uri != nullptr) {
+    fl_value_set_string_take(event, "url", fl_value_new_string(failing_uri));
+  }
+  send_event(webview, event);
+  return TRUE;
+}
+
+static FlMethodErrorResponse* event_listen_cb(FlEventChannel* channel,
+                                              FlValue* args,
+                                              gpointer user_data) {
+  LinuxWebView* webview = static_cast<LinuxWebView*>(user_data);
+  webview->event_listening = TRUE;
+  return nullptr;
+}
+
+static FlMethodErrorResponse* event_cancel_cb(FlEventChannel* channel,
+                                              FlValue* args,
+                                              gpointer user_data) {
+  LinuxWebView* webview = static_cast<LinuxWebView*>(user_data);
+  webview->event_listening = FALSE;
+  return nullptr;
+}
+
+void destroy_linux_webview(gpointer data) {
+  LinuxWebView* webview = static_cast<LinuxWebView*>(data);
+  if (webview == nullptr) {
+    return;
+  }
+
+  if (webview->web_view != nullptr) {
+    gtk_widget_destroy(GTK_WIDGET(webview->web_view));
+    g_object_unref(webview->web_view);
+  }
+  g_clear_object(&webview->method_channel);
+  g_clear_object(&webview->event_channel);
+  g_clear_object(&webview->content_manager);
+  g_hash_table_destroy(webview->pending_nav_decisions);
+  g_hash_table_destroy(webview->pending_auth_requests);
+  g_hash_table_destroy(webview->pending_permission_requests);
+  g_hash_table_destroy(webview->pending_script_dialogs);
+  g_hash_table_destroy(webview->pending_tls_errors);
+  g_hash_table_destroy(webview->js_channel_signal_ids);
+  g_hash_table_destroy(webview->js_channels);
+  g_free(webview);
+}
+
+LinuxWebView* create_linux_webview(WebviewAllLinuxPlugin* self) {
+  GtkOverlay* overlay = ensure_overlay(self);
+  if (overlay == nullptr) {
+    return nullptr;
+  }
+
+  LinuxWebView* webview = g_new0(LinuxWebView, 1);
+  webview->plugin = self;
+  webview->id = self->next_webview_id++;
+  webview->content_manager = webkit_user_content_manager_new();
+  webview->web_view = WEBKIT_WEB_VIEW(
+      webkit_web_view_new_with_user_content_manager(webview->content_manager));
+  webview->pending_nav_decisions =
+      g_hash_table_new_full(g_direct_hash, g_direct_equal, nullptr,
+                            destroy_pending_navigation_decision);
+  webview->pending_auth_requests =
+      g_hash_table_new_full(g_direct_hash, g_direct_equal, nullptr,
+                            reinterpret_cast<GDestroyNotify>(g_object_unref));
+  webview->pending_permission_requests =
+      g_hash_table_new_full(g_direct_hash, g_direct_equal, nullptr,
+                            reinterpret_cast<GDestroyNotify>(g_object_unref));
+  webview->pending_script_dialogs =
+      g_hash_table_new_full(g_direct_hash, g_direct_equal, nullptr,
+                            reinterpret_cast<GDestroyNotify>(
+                                webkit_script_dialog_unref));
+  webview->pending_tls_errors =
+      g_hash_table_new_full(g_direct_hash, g_direct_equal, nullptr,
+                            destroy_pending_tls_error);
+  webview->js_channel_signal_ids =
+      g_hash_table_new_full(g_str_hash, g_str_equal, g_free, nullptr);
+  webview->js_channels =
+      g_hash_table_new_full(g_str_hash, g_str_equal, g_free, nullptr);
+  webview->next_request_id = 1;
+
+  gchar* method_name =
+      g_strdup_printf("com.abandoft.webview_all_linux/%d", webview->id);
+  webview->method_channel = fl_method_channel_new(
+      fl_plugin_registrar_get_messenger(self->registrar), method_name,
+      method_codec());
+  g_free(method_name);
+
+  gchar* event_name =
+      g_strdup_printf("com.abandoft.webview_all_linux/%d/events", webview->id);
+  webview->event_channel = fl_event_channel_new(
+      fl_plugin_registrar_get_messenger(self->registrar), event_name,
+      method_codec());
+  g_free(event_name);
+
+  fl_method_channel_set_method_call_handler(webview->method_channel,
+                                            instance_method_call_cb, webview,
+                                            nullptr);
+  fl_event_channel_set_stream_handlers(webview->event_channel, event_listen_cb,
+                                       event_cancel_cb, webview, nullptr);
+
+  webkit_user_content_manager_register_script_message_handler(
+      webview->content_manager, "__webview_all_console");
+  webkit_user_content_manager_register_script_message_handler(
+      webview->content_manager, "__webview_all_scroll");
+  g_signal_connect(webview->content_manager,
+                   "script-message-received::__webview_all_console",
+                   G_CALLBACK(console_message_received_cb), webview);
+  g_signal_connect(webview->content_manager,
+                   "script-message-received::__webview_all_scroll",
+                   G_CALLBACK(scroll_message_received_cb), webview);
+
+  rebuild_user_scripts(webview);
+
+  g_signal_connect(webview->web_view, "decide-policy",
+                   G_CALLBACK(decide_policy_cb), webview);
+  g_signal_connect(webview->web_view, "load-changed",
+                   G_CALLBACK(load_changed_cb), webview);
+  g_signal_connect(webview->web_view, "notify::estimated-load-progress",
+                   G_CALLBACK(notify_progress_cb), webview);
+  g_signal_connect(webview->web_view, "notify::uri", G_CALLBACK(notify_uri_cb),
+                   webview);
+  g_signal_connect(webview->web_view, "notify::title",
+                   G_CALLBACK(notify_title_cb), webview);
+  g_signal_connect(webview->web_view, "load-failed",
+                   G_CALLBACK(load_failed_cb), webview);
+  g_signal_connect(webview->web_view, "authenticate",
+                   G_CALLBACK(authenticate_cb), webview);
+  g_signal_connect(webview->web_view, "permission-request",
+                   G_CALLBACK(permission_request_cb), webview);
+  g_signal_connect(webview->web_view, "script-dialog",
+                   G_CALLBACK(script_dialog_cb), webview);
+  g_signal_connect(webview->web_view, "load-failed-with-tls-errors",
+                   G_CALLBACK(load_failed_with_tls_errors_cb), webview);
+
+  gtk_widget_set_halign(GTK_WIDGET(webview->web_view), GTK_ALIGN_START);
+  gtk_widget_set_valign(GTK_WIDGET(webview->web_view), GTK_ALIGN_START);
+  gtk_widget_set_hexpand(GTK_WIDGET(webview->web_view), FALSE);
+  gtk_widget_set_vexpand(GTK_WIDGET(webview->web_view), FALSE);
+  gtk_widget_set_can_focus(GTK_WIDGET(webview->web_view), TRUE);
+  gtk_widget_set_sensitive(GTK_WIDGET(webview->web_view), TRUE);
+  gtk_widget_add_events(GTK_WIDGET(webview->web_view),
+                        GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK |
+                            GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK |
+                            GDK_POINTER_MOTION_MASK);
+  gtk_widget_set_size_request(GTK_WIDGET(webview->web_view), 1, 1);
+  gtk_widget_hide(GTK_WIDGET(webview->web_view));
+  gtk_overlay_add_overlay(overlay, GTK_WIDGET(webview->web_view));
+  gtk_overlay_set_overlay_pass_through(overlay, GTK_WIDGET(webview->web_view),
+                                       FALSE);
+  gtk_widget_show(GTK_WIDGET(webview->web_view));
+  gtk_widget_grab_focus(GTK_WIDGET(webview->web_view));
+  gtk_widget_hide(GTK_WIDGET(webview->web_view));
+
+  g_hash_table_insert(self->webviews, GINT_TO_POINTER(webview->id), webview);
+  return webview;
+}
