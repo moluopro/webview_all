@@ -1,3 +1,7 @@
+## 1.1.2
+
+* Align `WebViewCookieManager.getCookies({required Uri domain})` with the upstream `webview_flutter` public API.
+
 ## 1.1.1
 
 * Update the example app to use `abutil` for platform detection.
@@ -8,7 +12,7 @@
 
 * Add OpenHarmony platform implementation support.
 * Improve cookie API coverage:
-  * Add the common `WebViewCookieManager.getCookies(Uri)` API to the main plugin wrapper.
+  * Add the common `WebViewCookieManager.getCookies({required Uri domain})` API to the main plugin wrapper.
   * Implement and validate cross-platform cookie reads for the federated platform packages.
   * Add Windows WebView2-specific cookie APIs for full cookie metadata and deletion workflows.
 * Harden the Web platform implementation:
