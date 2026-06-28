@@ -2,14 +2,14 @@
 
 [English](https://github.com/moluopro/webview_all/blob/main/webview_all/README.md) | [中文文档](https://github.com/moluopro/webview_all/blob/main/webview_all/README-ZH.md)
 
-支持所有Flutter平台的Webview组件，遵守 `webview_flutter` 的[接口](https://pub.dev/packages/webview_flutter_platform_interface)。
+支持所有 Flutter 平台的 WebView 组件，遵守 [webview_flutter 平台接口](https://pub.dev/packages/webview_flutter_platform_interface)。
 
 |     系统     | **支持情况** | **技术实现** |
 |-------------|--------------|--------------|
-|Android|SDK 24+|[WebView](https://developer.android.com/reference/android/webkit/WebView)|
+|Android|API 24+|[WebView](https://developer.android.com/reference/android/webkit/WebView)|
 |iOS|13.0+|[WKWebView](https://developer.apple.com/documentation/webkit/wkwebview)|
-|Windows|Win10 1809+|[WebView2](https://developer.microsoft.com/microsoft-edge/webview2)|
 |macOS|10.15+|[WKWebView](https://developer.apple.com/documentation/webkit/wkwebview)|
+|Windows|Win10 1809+|[WebView2](https://developer.microsoft.com/microsoft-edge/webview2)|
 |Linux|webkit2gtk-4.1|[WebKitGTK](https://webkitgtk.org)|
 |OHOS|API 12+|[ArkWeb](https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/ts-basic-components-web-V5)|
 |Web|Any|[js-interop](https://dart.dev/interop/js-interop)|
