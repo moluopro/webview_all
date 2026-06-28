@@ -1,9 +1,16 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:abutil/abutil.dart';
 import 'package:webview_all/webview_all.dart';
 
 void main() {
-  runApp(const BilibiliApp());
+  runApp(
+    isOHOS()
+        ? const Directionality(
+            textDirection: TextDirection.ltr,
+            child: BilibiliPage(),
+          )
+        : const BilibiliApp(),
+  );
 }
 
 class BilibiliApp extends StatelessWidget {
@@ -12,9 +19,9 @@ class BilibiliApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Bilibili Example',
+      title: 'Bilibili',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.pinkAccent),
       ),
       home: const BilibiliPage(),
     );
@@ -37,7 +44,7 @@ class _BilibiliPageState extends State<BilibiliPage> {
     super.initState();
     _controller = WebViewController();
 
-    if (!kIsWeb) {
+    if (!isWeb()) {
       _controller
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setNavigationDelegate(
@@ -75,44 +82,49 @@ class _BilibiliPageState extends State<BilibiliPage> {
 
   @override
   Widget build(BuildContext context) {
+    final Widget webView = WebViewWidget(controller: _controller);
+
+    if (isOHOS()) {
+      return webView;
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bilibili APP'),
-        actions: <Widget>[
-          if (!kIsWeb)
-            IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () async {
-                if (await _controller.canGoBack()) {
-                  await _controller.goBack();
-                }
-              },
-            ),
-          if (!kIsWeb)
-            IconButton(
-              icon: const Icon(Icons.arrow_forward),
-              onPressed: () async {
-                if (await _controller.canGoForward()) {
-                  await _controller.goForward();
-                }
-              },
-            ),
-          if (!kIsWeb)
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: () {
-                _controller.reload();
-              },
-            ),
-        ],
+        title: const Text('Bilibili'),
+        actions: isWeb()
+            ? const <Widget>[]
+            : <Widget>[
+                IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () async {
+                    if (await _controller.canGoBack()) {
+                      await _controller.goBack();
+                    }
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.arrow_forward),
+                  onPressed: () async {
+                    if (await _controller.canGoForward()) {
+                      await _controller.goForward();
+                    }
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () {
+                    _controller.reload();
+                  },
+                ),
+              ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(3),
-          child: !kIsWeb && _progress < 100
+          child: !isWeb() && _progress < 100
               ? LinearProgressIndicator(value: _progress / 100)
               : const SizedBox(height: 3),
         ),
       ),
-      body: WebViewWidget(controller: _controller),
+      body: webView,
     );
   }
 }
