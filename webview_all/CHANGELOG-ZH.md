@@ -1,3 +1,7 @@
+## 1.1.2
+
+* 将 `WebViewCookieManager.getCookies({required Uri domain})` 与上游 `webview_flutter` 公共 API 对齐。
+
 ## 1.1.1
 
 * 示例改为使用 `abutil` 包进行平台判断。
@@ -8,7 +12,7 @@
 
 * 新增 OpenHarmony 平台实现支持。
 * 完善 cookie API 覆盖：
-  * 在主插件封装层新增通用 `WebViewCookieManager.getCookies(Uri)` API。
+  * 在主插件封装层新增通用 `WebViewCookieManager.getCookies({required Uri domain})` API。
   * 为各 federated 平台包实现并验证跨平台 cookie 读取能力。
   * 为 Windows WebView2 增加包含完整 cookie 元数据与删除流程的平台专用 API。
 * 加强 Web 平台实现：
