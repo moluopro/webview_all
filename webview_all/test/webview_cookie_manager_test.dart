@@ -16,7 +16,9 @@ void main() {
 
     expect(await manager.clearCookies(), isTrue);
     await manager.setCookie(cookie);
-    final cookies = await manager.getCookies(Uri.parse('https://example.com'));
+    final cookies = await manager.getCookies(
+      domain: Uri.parse('https://example.com'),
+    );
 
     expect(fakeCookieManager.cleared, isTrue);
     expect(fakeCookieManager.setCookieValue, cookie);
