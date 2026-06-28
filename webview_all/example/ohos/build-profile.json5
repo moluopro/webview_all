@@ -1,7 +1,20 @@
-
 {
   "app": {
-    "signingConfigs": [],
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "/Users/moluo/.ohos/config/default_ohos_XJIAkTwrXmaR1dZMdm22UA86gM72dx1pz9WAFGGyzmQ=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001BE40E8D3A15750871FCF3083863E32E4B1A2A46618CBF558F40141D89347B6DDB34903233ED7EF3",
+          "profile": "/Users/moluo/.ohos/config/default_ohos_XJIAkTwrXmaR1dZMdm22UA86gM72dx1pz9WAFGGyzmQ=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "/Users/moluo/.ohos/config/default_ohos_XJIAkTwrXmaR1dZMdm22UA86gM72dx1pz9WAFGGyzmQ=.p12",
+          "storePassword": "0000001BDA2D216167A390605A3BD06F7945260CD346FF56EE7E31B7BFF5D2B7AC2DCB65305FF9C5061013"
+        }
+      }
+    ],
     "products": [
       {
         "name": "default",
