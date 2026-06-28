@@ -46,16 +46,6 @@ dependencies:
   webview_all_ohos: ^1.1.0
   webview_all_web: ^1.1.0
 
-dependency_overrides:
-  webview_all_windows:
-    path: ../webview_all_windows
-  webview_all_linux:
-    path: ../webview_all_linux
-  webview_all_ohos:
-    path: ../webview_all_ohos
-  webview_all_web:
-    path: ../webview_all_web
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
