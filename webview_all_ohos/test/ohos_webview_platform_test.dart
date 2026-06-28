@@ -80,7 +80,7 @@ void main() {
     expect(cookies, hasLength(2));
     expect(cookies[0].name, 'session');
     expect(cookies[0].value, 'abc123');
-    expect(cookies[0].domain, url.toString());
+    expect(cookies[0].domain, url.host);
     expect(cookies[0].path, '/');
     expect(cookies[1].name, 'token');
     expect(cookies[1].value, 'a=b');
