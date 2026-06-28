@@ -87,6 +87,12 @@ class WebViewCookieManager {
   /// This is a no op on iOS versions below 11.
   Future<void> setCookie(WebViewCookie cookie) => platform.setCookie(cookie);
 
-  /// Returns cookies visible for [url] from all WebView instances.
-  Future<List<WebViewCookie>> getCookies(Uri url) => platform.getCookies(url);
+  /// Gets a list of existing cookie for specified domain from all
+  /// WebView instances of the application.
+  ///
+  /// Each platform can have different url requirements. Please check individual
+  /// platform implementation for details.
+  Future<List<WebViewCookie>> getCookies({required Uri domain}) {
+    return platform.getCookies(domain);
+  }
 }
