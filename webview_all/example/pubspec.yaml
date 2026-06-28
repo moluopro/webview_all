@@ -12,6 +12,7 @@ dependencies:
     sdk: flutter
   webview_all:
     path: ../
+  abutil: ^1.2.2
 
 dependency_overrides:
   webview_all_linux:
