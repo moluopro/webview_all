@@ -61,7 +61,10 @@ class _BilibiliPageState extends State<BilibiliPage> {
               }
             },
             onWebResourceError: (WebResourceError error) {
-              debugPrint('Error ${error.errorCode}: ${error.description}');
+              debugPrint(
+                'WebView error ${error.errorCode}: '
+                '${error.description} (${error.url})',
+              );
             },
           ),
         );

@@ -68,6 +68,7 @@ lib/generated_plugin_registrant.dart
 
 # Apple platforms
 **/Pods/
+**/Podfile.lock
 **/.symlinks/
 **/DerivedData/
 **/xcuserdata/
