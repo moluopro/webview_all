@@ -1,0 +1,54 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+._*
+.vscode/
+.atom/
+.build/
+.buildlog/
+.history/
+.svn/
+migrate_working_dir/
+
+# IDE
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter/Dart/Pub
+**/doc/api/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+/coverage/
+/pubspec.lock
+
+# Symbolication / obfuscation
+app.*.symbols
+app.*.map.json
+
+# Windows / Visual Studio
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.VC.db
+*.VC.VC.opendb
+ipch/
+x64/
+x86/
+out/
+packages/
+*.[Cc]ache
+!*.[Cc]ache/
+
+# Flutter Windows generated files
+windows/flutter/
