@@ -1531,6 +1531,12 @@ class OhosNavigationDelegate extends PlatformNavigationDelegate {
   }
 
   @override
+  Future<void> setOnHttpError(HttpResponseErrorCallback onHttpError) async {
+    // OHOS ArkWeb does not currently expose a compatible HTTP status error
+    // callback through this bridge. Keep the common API safe to register.
+  }
+
+  @override
   Future<void> setOnProgress(ProgressCallback onProgress) async {
     _onProgress = onProgress;
   }
@@ -1552,5 +1558,11 @@ class OhosNavigationDelegate extends PlatformNavigationDelegate {
     HttpAuthRequestCallback onHttpAuthRequest,
   ) async {
     _onHttpAuthRequest = onHttpAuthRequest;
+  }
+
+  @override
+  Future<void> setOnSSlAuthError(SslAuthErrorCallback onSslAuthError) async {
+    // OHOS ArkWeb does not currently expose a compatible recoverable SSL
+    // auth callback through this bridge. Keep the common API safe to register.
   }
 }
