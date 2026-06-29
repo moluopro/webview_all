@@ -3,14 +3,7 @@ import 'package:abutil/abutil.dart';
 import 'package:webview_all/webview_all.dart';
 
 void main() {
-  runApp(
-    isOHOS()
-        ? const Directionality(
-            textDirection: TextDirection.ltr,
-            child: BilibiliPage(),
-          )
-        : const BilibiliApp(),
-  );
+  runApp(const BilibiliApp());
 }
 
 class BilibiliApp extends StatelessWidget {
@@ -83,10 +76,6 @@ class _BilibiliPageState extends State<BilibiliPage> {
   @override
   Widget build(BuildContext context) {
     final Widget webView = WebViewWidget(controller: _controller);
-
-    if (isOHOS()) {
-      return webView;
-    }
 
     return Scaffold(
       appBar: AppBar(
