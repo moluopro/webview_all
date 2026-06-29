@@ -164,5 +164,17 @@ Replace it with:
 
 ### Known Limitations
 
-* Some APIs are missing on the macOS platform.
-* The Web platform is limited by browser security policies.
+`webview_all` follows the `webview_flutter` public API, but some platform
+engines do not expose equivalent native capabilities.
+
+* **Web** runs in a browser `iframe`; arbitrary JavaScript execution,
+  JavaScript channels, JavaScript dialog interception, permission request
+  interception, and some request flows are limited by browser security policy
+  and CORS.
+* **macOS** uses the public `WKWebView` API. A fully transparent WebView
+  background is not exposed as a stable public App Store-safe API by WebKit.
+* **Windows** uses WebView2. JavaScript dialog callbacks and scrollbar
+  visibility toggles are not exposed by this plugin yet.
+* **OHOS** uses ArkWeb. HTTP status error and recoverable SSL auth callbacks
+  are safe to register through the common API, but the current ArkWeb bridge
+  does not emit equivalent native events yet.

@@ -162,5 +162,9 @@ static void first_frame_cb(MyApplication* self, FlView* view) {
 
 ### 已知的限制
 
-* macOS 平台缺失了部分API。
-* Web 平台受浏览器安全策略限制。
+`webview_all` 遵守 `webview_flutter` 公共 API，但不同平台引擎并不总是暴露等价的原生能力。
+
+* **Web** 运行在浏览器 `iframe` 中，任意 JavaScript 执行、JavaScript channel、JavaScript 弹窗拦截、权限请求拦截以及部分请求流程会受到浏览器安全策略和 CORS 限制。
+* **macOS** 使用公开的 `WKWebView` API。WebKit 没有提供稳定且适合 App Store 上架的公开 API 来实现真正透明的 WebView 背景。
+* **Windows** 使用 WebView2。JavaScript 弹窗回调和滚动条可见性开关当前尚未在本插件中暴露为真实原生能力。
+* **OHOS** 使用 ArkWeb。HTTP status error 与可恢复 SSL auth 回调可以通过通用 API 安全注册，但当前 ArkWeb 桥接层还不会发出等价的原生事件。
