@@ -1,3 +1,8 @@
+## 1.1.3
+
+* Complete OHOS `NavigationDelegate` registration coverage for HTTP error and SSL auth callbacks.
+* Keep federated platform package versions aligned with the main package.
+
 ## 1.1.2
 
 * Align `WebViewCookieManager.getCookies({required Uri domain})` with the upstream `webview_flutter` public API.
