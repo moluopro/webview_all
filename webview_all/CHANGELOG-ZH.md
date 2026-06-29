@@ -1,3 +1,8 @@
+## 1.1.3
+
+* 补齐 OHOS `NavigationDelegate` 对 HTTP error 与 SSL auth 回调注册的覆盖。
+* 继续保持各 federated 平台包与主包版本号一致。
+
 ## 1.1.2
 
 * 将 `WebViewCookieManager.getCookies({required Uri domain})` 与上游 `webview_flutter` 公共 API 对齐。
