@@ -21,7 +21,7 @@ mixin Copyable {
 class InstanceManager {
   /// Creates an [InstanceManager].
   InstanceManager({required void Function(int) onWeakReferenceRemoved})
-      : _nativeDispose = onWeakReferenceRemoved {
+    : _nativeDispose = onWeakReferenceRemoved {
     _finalizer = Finalizer<int>(_handleFinalizedWeakReference);
   }
 
