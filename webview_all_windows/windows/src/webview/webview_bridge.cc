@@ -4,6 +4,7 @@
 #include <flutter/method_result_functions.h>
 
 #include <format>
+#include <map>
 #include <memory>
 #include <optional>
 
@@ -67,6 +68,29 @@ static const std::string &GetCursorName(const HCURSOR cursor) {
     return it->second;
   }
   return kDefaultCursorName;
+}
+
+static std::string JavaScriptDialogKindName(WebviewJavaScriptDialogKind kind) {
+  switch (kind) {
+  case WebviewJavaScriptDialogKind::Alert:
+    return "alert";
+  case WebviewJavaScriptDialogKind::Confirm:
+    return "confirm";
+  case WebviewJavaScriptDialogKind::Prompt:
+    return "prompt";
+  case WebviewJavaScriptDialogKind::BeforeUnload:
+    return "beforeUnload";
+  }
+  return "alert";
+}
+
+flutter::EncodableMap
+HeadersToEncodableMap(const std::map<std::string, std::string> &headers) {
+  flutter::EncodableMap result;
+  for (const auto &[name, value] : headers) {
+    result[flutter::EncodableValue(name)] = flutter::EncodableValue(value);
+  }
+  return result;
 }
 
 } // namespace
@@ -149,6 +173,36 @@ void WebviewBridge::RegisterEventHandlers() {
     });
     EmitEvent(event);
   });
+
+  webview_->OnHttpResponseError(
+      [this](const WebviewHttpResponseError &http_error) {
+        flutter::EncodableMap value = {
+            {flutter::EncodableValue("url"),
+             flutter::EncodableValue(http_error.url)},
+            {flutter::EncodableValue("method"),
+             flutter::EncodableValue(http_error.method)},
+            {flutter::EncodableValue("requestHeaders"),
+             flutter::EncodableValue(
+                 HeadersToEncodableMap(http_error.request_headers))},
+            {flutter::EncodableValue("statusCode"),
+             flutter::EncodableValue(http_error.status_code)},
+            {flutter::EncodableValue("responseHeaders"),
+             flutter::EncodableValue(
+                 HeadersToEncodableMap(http_error.response_headers))},
+        };
+        if (http_error.reason_phrase.has_value()) {
+          value[flutter::EncodableValue("reasonPhrase")] =
+              flutter::EncodableValue(http_error.reason_phrase.value());
+        }
+
+        const auto event = flutter::EncodableValue(flutter::EncodableMap{
+            {flutter::EncodableValue(kEventType),
+             flutter::EncodableValue("httpError")},
+            {flutter::EncodableValue(kEventValue),
+             flutter::EncodableValue(value)},
+        });
+        EmitEvent(event);
+      });
 
   webview_->OnLoadingStateChanged([this](WebviewLoadingState state) {
     const auto event = flutter::EncodableValue(flutter::EncodableMap{
@@ -244,6 +298,24 @@ void WebviewBridge::RegisterEventHandlers() {
         OnPermissionRequested(url, kind, is_user_initiated, completer);
       });
 
+  webview_->OnHttpAuthRequested(
+      [this](const WebviewHttpAuthRequest &request,
+             Webview::WebviewHttpAuthRequestedCompleter completer) {
+        OnHttpAuthRequested(request, completer);
+      });
+
+  webview_->OnSslAuthError(
+      [this](const WebviewSslAuthError &error,
+             Webview::WebviewSslAuthErrorCompleter completer) {
+        OnSslAuthError(error, completer);
+      });
+
+  webview_->OnJavaScriptDialogRequested(
+      [this](const WebviewJavaScriptDialogRequest &request,
+             Webview::WebviewJavaScriptDialogCompleter completer) {
+        OnJavaScriptDialogRequested(request, completer);
+      });
+
   webview_->OnContainsFullScreenElementChanged(
       [this](bool contains_fullscreen_element) {
         const auto event = flutter::EncodableValue(flutter::EncodableMap{
@@ -283,6 +355,153 @@ void WebviewBridge::OnPermissionRequested(
           [completer]() { completer(WebviewPermissionState::Default); }));
 }
 
+void WebviewBridge::OnHttpAuthRequested(
+    const WebviewHttpAuthRequest &request,
+    Webview::WebviewHttpAuthRequestedCompleter completer) {
+  auto args = std::make_unique<flutter::EncodableValue>(flutter::EncodableMap{
+      {"url", request.url},
+      {"challenge", request.challenge},
+  });
+
+  method_channel_->InvokeMethod(
+      "httpAuthRequested", std::move(args),
+      std::make_unique<flutter::MethodResultFunctions<flutter::EncodableValue>>(
+          [completer](const flutter::EncodableValue *result) {
+            const auto response =
+                result == nullptr ? nullptr
+                                  : std::get_if<flutter::EncodableMap>(result);
+            if (response == nullptr) {
+              completer(false, "", "");
+              return;
+            }
+
+            bool accepted = false;
+            auto action_it = response->find(flutter::EncodableValue("action"));
+            if (action_it != response->end()) {
+              const auto action = std::get_if<std::string>(&action_it->second);
+              accepted = action != nullptr && *action == "proceed";
+            }
+
+            std::string user;
+            auto user_it = response->find(flutter::EncodableValue("user"));
+            if (user_it != response->end()) {
+              if (const auto response_user =
+                      std::get_if<std::string>(&user_it->second)) {
+                user = *response_user;
+              }
+            }
+
+            std::string password;
+            auto password_it =
+                response->find(flutter::EncodableValue("password"));
+            if (password_it != response->end()) {
+              if (const auto response_password =
+                      std::get_if<std::string>(&password_it->second)) {
+                password = *response_password;
+              }
+            }
+
+            completer(accepted, user, password);
+          },
+          [completer](const std::string &error_code,
+                      const std::string &error_message,
+                      const flutter::EncodableValue *error_details) {
+            completer(false, "", "");
+          },
+          [completer]() { completer(false, "", ""); }));
+}
+
+void WebviewBridge::OnSslAuthError(
+    const WebviewSslAuthError &error,
+    Webview::WebviewSslAuthErrorCompleter completer) {
+  auto args = std::make_unique<flutter::EncodableValue>(flutter::EncodableMap{
+      {"url", error.url},
+      {"errorStatus", static_cast<int>(error.status)},
+  });
+
+  method_channel_->InvokeMethod(
+      "sslAuthError", std::move(args),
+      std::make_unique<flutter::MethodResultFunctions<flutter::EncodableValue>>(
+          [completer](const flutter::EncodableValue *result) {
+            const auto response =
+                result == nullptr ? nullptr
+                                  : std::get_if<flutter::EncodableMap>(result);
+            if (response == nullptr) {
+              completer(false);
+              return;
+            }
+
+            bool proceed = false;
+            auto action_it = response->find(flutter::EncodableValue("action"));
+            if (action_it != response->end()) {
+              const auto action = std::get_if<std::string>(&action_it->second);
+              proceed = action != nullptr && *action == "proceed";
+            }
+            completer(proceed);
+          },
+          [completer](const std::string &error_code,
+                      const std::string &error_message,
+                      const flutter::EncodableValue *error_details) {
+            completer(false);
+          },
+          [completer]() { completer(false); }));
+}
+
+void WebviewBridge::OnJavaScriptDialogRequested(
+    const WebviewJavaScriptDialogRequest &request,
+    Webview::WebviewJavaScriptDialogCompleter completer) {
+  flutter::EncodableMap dialog_request{
+      {"dialogType", JavaScriptDialogKindName(request.kind)},
+      {"url", request.url},
+      {"message", request.message},
+  };
+  if (request.default_text) {
+    dialog_request[flutter::EncodableValue("defaultText")] =
+        flutter::EncodableValue(*request.default_text);
+  }
+
+  auto args =
+      std::make_unique<flutter::EncodableValue>(std::move(dialog_request));
+  method_channel_->InvokeMethod(
+      "javaScriptDialogRequested", std::move(args),
+      std::make_unique<flutter::MethodResultFunctions<flutter::EncodableValue>>(
+          [completer](const flutter::EncodableValue *result) {
+            const auto response =
+                result == nullptr ? nullptr
+                                  : std::get_if<flutter::EncodableMap>(result);
+            if (response == nullptr) {
+              completer(false, std::nullopt);
+              return;
+            }
+
+            bool accepted = false;
+            auto action_it = response->find(flutter::EncodableValue("action"));
+            if (action_it != response->end()) {
+              const auto action = std::get_if<std::string>(&action_it->second);
+              accepted = action != nullptr &&
+                         (*action == "accept" || *action == "confirm");
+            }
+
+            std::optional<std::string> text;
+            auto text_it = response->find(flutter::EncodableValue("text"));
+            if (text_it != response->end()) {
+              const auto response_text =
+                  std::get_if<std::string>(&text_it->second);
+              if (response_text != nullptr) {
+                text = *response_text;
+              }
+            }
+
+            completer(accepted, text);
+          },
+          [completer](const std::string &error_code,
+                      const std::string &error_message,
+                      const flutter::EncodableValue *error_details) {
+            completer(false, std::nullopt);
+          },
+          [completer]() { completer(false, std::nullopt); }));
+}
+
 void WebviewBridge::SetCursorPos(double x, double y) {
   webview_->SetCursorPos(x, y);
 }
@@ -311,6 +530,13 @@ void WebviewBridge::SetSize(double width, double height, double scale_factor) {
 }
 
 void WebviewBridge::LoadUrl(const std::string &url) { webview_->LoadUrl(url); }
+
+bool WebviewBridge::LoadRequest(const std::string &url,
+                                const std::string &method,
+                                const std::string &headers,
+                                const std::vector<uint8_t> *body) {
+  return webview_->LoadRequest(url, method, headers, body);
+}
 
 void WebviewBridge::LoadStringContent(const std::string &content) {
   webview_->LoadStringContent(content);
@@ -366,8 +592,20 @@ bool WebviewBridge::PostWebMessage(const std::string &message) {
   return webview_->PostWebMessage(message);
 }
 
-bool WebviewBridge::SetUserAgent(const std::string &user_agent) {
+bool WebviewBridge::SetUserAgent(const std::string *user_agent) {
   return webview_->SetUserAgent(user_agent);
+}
+
+std::optional<std::string> WebviewBridge::GetUserAgent() {
+  return webview_->GetUserAgent();
+}
+
+bool WebviewBridge::SetJavaScriptEnabled(bool enabled) {
+  return webview_->SetJavaScriptEnabled(enabled);
+}
+
+bool WebviewBridge::SetZoomControlEnabled(bool enabled) {
+  return webview_->SetZoomControlEnabled(enabled);
 }
 
 bool WebviewBridge::SetBackgroundColor(int64_t color) {
@@ -379,6 +617,12 @@ bool WebviewBridge::SetZoomFactor(double zoom_factor) {
 }
 
 bool WebviewBridge::OpenDevTools() { return webview_->OpenDevTools(); }
+
+void WebviewBridge::SetJavaScriptDialogCallbacksEnabled(bool alert,
+                                                        bool confirm,
+                                                        bool prompt) {
+  webview_->SetJavaScriptDialogCallbacksEnabled(alert, confirm, prompt);
+}
 
 void WebviewBridge::ClearCookies(
     std::function<void(bool success, bool had_cookies)> result) {
@@ -412,6 +656,11 @@ bool WebviewBridge::DeleteCookiesWithNameDomainAndPath(
 }
 
 bool WebviewBridge::ClearCache() { return webview_->ClearCache(); }
+
+void WebviewBridge::ClearLocalStorage(
+    Webview::OperationCompletedCallback callback) {
+  webview_->ClearLocalStorage(std::move(callback));
+}
 
 bool WebviewBridge::SetCacheDisabled(bool disabled) {
   return webview_->SetCacheDisabled(disabled);

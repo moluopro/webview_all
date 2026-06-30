@@ -37,6 +37,9 @@ public:
   void SetSize(double width, double height, double scale_factor);
 
   void LoadUrl(const std::string &url);
+  bool LoadRequest(const std::string &url, const std::string &method,
+                   const std::string &headers,
+                   const std::vector<uint8_t> *body);
   void LoadStringContent(const std::string &content);
   bool Reload();
   bool Stop();
@@ -57,10 +60,15 @@ public:
       const std::string &script,
       std::function<void(bool success, const std::string &json_result)> result);
   bool PostWebMessage(const std::string &message);
-  bool SetUserAgent(const std::string &user_agent);
+  bool SetUserAgent(const std::string *user_agent);
+  std::optional<std::string> GetUserAgent();
+  bool SetJavaScriptEnabled(bool enabled);
+  bool SetZoomControlEnabled(bool enabled);
   bool SetBackgroundColor(int64_t color);
   bool SetZoomFactor(double zoom_factor);
   bool OpenDevTools();
+  void SetJavaScriptDialogCallbacksEnabled(bool alert, bool confirm,
+                                           bool prompt);
 
   void ClearCookies(std::function<void(bool success, bool had_cookies)> result);
   bool SetCookie(const WebviewCookie &cookie);
@@ -75,6 +83,7 @@ public:
                                           const std::string &domain,
                                           const std::string &path);
   bool ClearCache();
+  void ClearLocalStorage(Webview::OperationCompletedCallback callback);
   bool SetCacheDisabled(bool disabled);
   void SetPopupWindowPolicy(int64_t policy);
   void SetFpsLimit(int64_t max_fps);
@@ -105,6 +114,14 @@ private:
                         WebviewPermissionKind permissionKind,
                         bool is_user_initiated,
                         Webview::WebviewPermissionRequestedCompleter completer);
+  void
+  OnHttpAuthRequested(const WebviewHttpAuthRequest &request,
+                      Webview::WebviewHttpAuthRequestedCompleter completer);
+  void OnSslAuthError(const WebviewSslAuthError &error,
+                      Webview::WebviewSslAuthErrorCompleter completer);
+  void OnJavaScriptDialogRequested(
+      const WebviewJavaScriptDialogRequest &request,
+      Webview::WebviewJavaScriptDialogCompleter completer);
 };
 
 } // namespace webview_all_windows
