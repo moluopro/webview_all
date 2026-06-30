@@ -50,6 +50,31 @@ class WebResourceErrorData {
   final String description;
 }
 
+class WebResourceResponseData {
+  WebResourceResponseData({
+    required this.statusCode,
+    required this.responseHeaders,
+    this.reasonPhrase,
+    this.mimeType,
+  });
+
+  factory WebResourceResponseData.fromMessage(Object? value) {
+    final Map<Object?, Object?> map = (value! as Map<Object?, Object?>);
+    return WebResourceResponseData(
+      statusCode: map['statusCode']! as int,
+      responseHeaders: (map['responseHeaders']! as Map<Object?, Object?>)
+          .cast<String, String>(),
+      reasonPhrase: map['reasonPhrase'] as String?,
+      mimeType: map['mimeType'] as String?,
+    );
+  }
+
+  final int statusCode;
+  final Map<String, String> responseHeaders;
+  final String? reasonPhrase;
+  final String? mimeType;
+}
+
 class WebViewPoint {
   WebViewPoint({required this.x, required this.y});
 
