@@ -14,6 +14,7 @@ import { OhosObjectHostApiImpl } from './OhosObjectHostApiImpl';
 import { CookieManagerHostApiImpl } from './CookieManagerHostApiImpl';
 import { PermissionRequestHostApiImpl } from './PermissionRequestHostApiImpl';
 import { Result, WebViewPoint } from './OhosWebViewTypes';
+import { SslAuthHandlerHostApiImpl } from './SslAuthHandlerHostApiImpl';
 import { WebChromeClientHostApiImpl } from './WebChromeClientHostApiImpl';
 import { WebSettingsHostApiImpl } from './WebSettingsHostApiImpl';
 import { WebStorageHostApiImpl } from './WebStorageHostApiImpl';
@@ -55,6 +56,7 @@ export class OhosWebViewHostApiChannel implements MethodCallHandler {
   private geolocationPermissionsCallbackApi: GeolocationPermissionsCallbackHostApiImpl;
   private customViewCallbackApi: CustomViewCallbackHostApiImpl;
   private httpAuthHandlerApi: HttpAuthHandlerHostApiImpl;
+  private sslAuthHandlerApi: SslAuthHandlerHostApiImpl;
 
   constructor(
     messenger: BinaryMessenger,
@@ -72,7 +74,8 @@ export class OhosWebViewHostApiChannel implements MethodCallHandler {
     permissionRequestApi: PermissionRequestHostApiImpl,
     geolocationPermissionsCallbackApi: GeolocationPermissionsCallbackHostApiImpl,
     customViewCallbackApi: CustomViewCallbackHostApiImpl,
-    httpAuthHandlerApi: HttpAuthHandlerHostApiImpl
+    httpAuthHandlerApi: HttpAuthHandlerHostApiImpl,
+    sslAuthHandlerApi: SslAuthHandlerHostApiImpl
   ) {
     this.channel = new MethodChannel(messenger, CHANNEL_NAME);
     this.channel.setMethodCallHandler(this);
@@ -91,6 +94,7 @@ export class OhosWebViewHostApiChannel implements MethodCallHandler {
     this.geolocationPermissionsCallbackApi = geolocationPermissionsCallbackApi;
     this.customViewCallbackApi = customViewCallbackApi;
     this.httpAuthHandlerApi = httpAuthHandlerApi;
+    this.sslAuthHandlerApi = sslAuthHandlerApi;
   }
 
   dispose(): void {
@@ -327,6 +331,14 @@ export class OhosWebViewHostApiChannel implements MethodCallHandler {
             call.argument('username'),
             call.argument('password')
           );
+          result.success(null);
+          return;
+        case 'SslAuthHandler.cancel':
+          this.sslAuthHandlerApi.cancel(call.argument('instanceId'));
+          result.success(null);
+          return;
+        case 'SslAuthHandler.proceed':
+          this.sslAuthHandlerApi.proceed(call.argument('instanceId'));
           result.success(null);
           return;
         default:
