@@ -7,6 +7,7 @@
 #include <winrt/base.h>
 
 #include <functional>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -43,6 +44,8 @@ enum class WebviewPopupWindowPolicy { Allow, Deny, ShowInSameWindow };
 
 enum class WebviewHostResourceAccessKind { Deny, Allow, DenyCors };
 
+enum class WebviewJavaScriptDialogKind { Alert, Confirm, Prompt, BeforeUnload };
+
 struct WebviewHistoryChanged {
   BOOL can_go_back;
   BOOL can_go_forward;
@@ -66,6 +69,32 @@ struct WebviewCookie {
   std::optional<bool> is_secure;
   std::optional<int64_t> same_site;
   std::optional<bool> is_session;
+};
+
+struct WebviewJavaScriptDialogRequest {
+  WebviewJavaScriptDialogKind kind;
+  std::string url;
+  std::string message;
+  std::optional<std::string> default_text;
+};
+
+struct WebviewHttpResponseError {
+  std::string url;
+  std::string method;
+  std::map<std::string, std::string> request_headers;
+  int status_code;
+  std::map<std::string, std::string> response_headers;
+  std::optional<std::string> reason_phrase;
+};
+
+struct WebviewHttpAuthRequest {
+  std::string url;
+  std::string challenge;
+};
+
+struct WebviewSslAuthError {
+  std::string url;
+  COREWEBVIEW2_WEB_ERROR_STATUS status;
 };
 
 struct VirtualKeyState {
@@ -114,7 +143,11 @@ struct EventRegistrations {
   EventRegistrationToken got_focus_token_{};
   EventRegistrationToken lost_focus_token_{};
   EventRegistrationToken web_message_received_token_{};
+  EventRegistrationToken web_resource_response_received_token_{};
+  EventRegistrationToken basic_authentication_requested_token_{};
+  EventRegistrationToken server_certificate_error_detected_token_{};
   EventRegistrationToken permission_requested_token_{};
+  EventRegistrationToken script_dialog_opening_token_{};
   EventRegistrationToken devtools_protocol_event_token_{};
   EventRegistrationToken new_windows_requested_token_{};
   EventRegistrationToken contains_fullscreen_element_changed_token_{};
@@ -131,6 +164,8 @@ public:
   typedef std::function<void(WebviewLoadingState)> LoadingStateChangedCallback;
   typedef std::function<void(COREWEBVIEW2_WEB_ERROR_STATUS)>
       OnLoadErrorCallback;
+  typedef std::function<void(const WebviewHttpResponseError &)>
+      HttpResponseErrorCallback;
   typedef std::function<void(WebviewHistoryChanged)> HistoryChangedCallback;
   typedef std::function<void(const std::string &)>
       DevtoolsProtocolEventCallback;
@@ -142,13 +177,30 @@ public:
   typedef std::function<void(bool, const std::string &)>
       AddScriptToExecuteOnDocumentCreatedCallback;
   typedef std::function<void(bool, const std::string &)> ScriptExecutedCallback;
+  typedef std::function<void(bool)> OperationCompletedCallback;
   typedef std::function<void(const std::string &)> WebMessageReceivedCallback;
   typedef std::function<void(WebviewPermissionState state)>
       WebviewPermissionRequestedCompleter;
+  typedef std::function<void(bool accepted, const std::string &user,
+                             const std::string &password)>
+      WebviewHttpAuthRequestedCompleter;
+  typedef std::function<void(const WebviewHttpAuthRequest &request,
+                             WebviewHttpAuthRequestedCompleter completer)>
+      HttpAuthRequestedCallback;
+  typedef std::function<void(bool proceed)> WebviewSslAuthErrorCompleter;
+  typedef std::function<void(const WebviewSslAuthError &error,
+                             WebviewSslAuthErrorCompleter completer)>
+      SslAuthErrorCallback;
   typedef std::function<void(const std::string &url, WebviewPermissionKind kind,
                              bool is_user_initiated,
                              WebviewPermissionRequestedCompleter completer)>
       PermissionRequestedCallback;
+  typedef std::function<void(bool accepted,
+                             const std::optional<std::string> &text)>
+      WebviewJavaScriptDialogCompleter;
+  typedef std::function<void(const WebviewJavaScriptDialogRequest &request,
+                             WebviewJavaScriptDialogCompleter completer)>
+      JavaScriptDialogRequestedCallback;
   typedef std::function<void(bool contains_fullscreen_element)>
       ContainsFullScreenElementChangedCallback;
   typedef std::function<void(WebviewDownloadEvent)> DownloadEventCallback;
@@ -172,6 +224,9 @@ public:
   void SetPointerButtonState(WebviewPointerButton button, bool isDown);
   void SetScrollDelta(double delta_x, double delta_y);
   void LoadUrl(const std::string &url);
+  bool LoadRequest(const std::string &url, const std::string &method,
+                   const std::string &headers,
+                   const std::vector<uint8_t> *body);
   void LoadStringContent(const std::string &content);
   bool Stop();
   bool Reload();
@@ -194,14 +249,20 @@ public:
                                           const std::string &domain,
                                           const std::string &path);
   bool ClearCache();
+  void ClearLocalStorage(OperationCompletedCallback callback);
   bool SetCacheDisabled(bool disabled);
   void SetPopupWindowPolicy(WebviewPopupWindowPolicy policy);
-  bool SetUserAgent(const std::string &user_agent);
+  bool SetUserAgent(const std::string *user_agent);
+  std::optional<std::string> GetUserAgent();
+  bool SetJavaScriptEnabled(bool enabled);
+  bool SetZoomControlEnabled(bool enabled);
   bool OpenDevTools();
   bool SetBackgroundColor(int32_t color);
   bool SetZoomFactor(double factor);
   bool Suspend();
   bool Resume();
+  void SetJavaScriptDialogCallbacksEnabled(bool alert, bool confirm,
+                                           bool prompt);
 
   bool SetVirtualHostNameMapping(const std::string &hostName,
                                  const std::string &path,
@@ -216,6 +277,10 @@ public:
 
   void OnLoadError(OnLoadErrorCallback callback) {
     on_load_error_callback_ = std::move(callback);
+  }
+
+  void OnHttpResponseError(HttpResponseErrorCallback callback) {
+    http_response_error_callback_ = std::move(callback);
   }
 
   void OnLoadingStateChanged(LoadingStateChangedCallback callback) {
@@ -254,6 +319,18 @@ public:
     permission_requested_callback_ = std::move(callback);
   }
 
+  void OnHttpAuthRequested(HttpAuthRequestedCallback callback) {
+    http_auth_requested_callback_ = std::move(callback);
+  }
+
+  void OnSslAuthError(SslAuthErrorCallback callback) {
+    ssl_auth_error_callback_ = std::move(callback);
+  }
+
+  void OnJavaScriptDialogRequested(JavaScriptDialogRequestedCallback callback) {
+    java_script_dialog_requested_callback_ = std::move(callback);
+  }
+
   void OnDevtoolsProtocolEvent(DevtoolsProtocolEventCallback callback) {
     devtools_protocol_event_callback_ = std::move(callback);
   }
@@ -273,11 +350,16 @@ private:
   wil::com_ptr<ICoreWebView2> webview_;
   wil::com_ptr<ICoreWebView2DevToolsProtocolEventReceiver>
       devtools_protocol_event_receiver_;
+  wil::com_ptr<ICoreWebView2Settings> settings_;
   wil::com_ptr<ICoreWebView2Settings2> settings2_;
+  std::string default_user_agent_;
   POINT last_cursor_pos_ = {0, 0};
   VirtualKeyState virtual_keys_;
   WebviewPopupWindowPolicy popup_window_policy_ =
       WebviewPopupWindowPolicy::Allow;
+  bool java_script_alert_dialog_enabled_ = false;
+  bool java_script_confirm_dialog_enabled_ = false;
+  bool java_script_prompt_dialog_enabled_ = false;
   double horizontal_scroll_remainder_ = 0.0;
   double vertical_scroll_remainder_ = 0.0;
 
@@ -292,6 +374,7 @@ private:
   LoadingStateChangedCallback loading_state_changed_callback_;
   DownloadEventCallback download_event_callback_;
   OnLoadErrorCallback on_load_error_callback_;
+  HttpResponseErrorCallback http_response_error_callback_;
   HistoryChangedCallback history_changed_callback_;
   DocumentTitleChangedCallback document_title_changed_callback_;
   SurfaceSizeChangedCallback surface_size_changed_callback_;
@@ -299,6 +382,9 @@ private:
   FocusChangedCallback focus_changed_callback_;
   WebMessageReceivedCallback web_message_received_callback_;
   PermissionRequestedCallback permission_requested_callback_;
+  HttpAuthRequestedCallback http_auth_requested_callback_;
+  SslAuthErrorCallback ssl_auth_error_callback_;
+  JavaScriptDialogRequestedCallback java_script_dialog_requested_callback_;
   DevtoolsProtocolEventCallback devtools_protocol_event_callback_;
   ContainsFullScreenElementChangedCallback
       contains_fullscreen_element_changed_callback_;

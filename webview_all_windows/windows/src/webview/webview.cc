@@ -6,6 +6,8 @@
 #include <cmath>
 #include <format>
 #include <limits>
+#include <map>
+#include <memory>
 #include <utility>
 
 #include "util/composition.desktop.interop.h"
@@ -23,6 +25,53 @@ inline void ConvertColor(COREWEBVIEW2_COLOR &webview_color, int32_t color) {
   webview_color.G = (color >> 8) & 0xFF;
   webview_color.R = (color >> 16) & 0xFF;
   webview_color.A = (color >> 24) & 0xFF;
+}
+
+std::map<std::string, std::string>
+ReadHttpHeaders(ICoreWebView2HttpHeadersCollectionIterator *iterator) {
+  std::map<std::string, std::string> headers;
+  if (iterator == nullptr) {
+    return headers;
+  }
+
+  BOOL has_current = FALSE;
+  if (FAILED(iterator->get_HasCurrentHeader(&has_current))) {
+    return headers;
+  }
+
+  while (has_current) {
+    wil::unique_cotaskmem_string name;
+    wil::unique_cotaskmem_string value;
+    if (SUCCEEDED(iterator->GetCurrentHeader(&name, &value)) &&
+        name != nullptr && value != nullptr) {
+      headers[util::Utf8FromUtf16(name.get())] =
+          util::Utf8FromUtf16(value.get());
+    }
+
+    if (FAILED(iterator->MoveNext(&has_current))) {
+      break;
+    }
+  }
+
+  return headers;
+}
+
+std::map<std::string, std::string>
+ReadHttpHeaders(ICoreWebView2HttpRequestHeaders *headers) {
+  wil::com_ptr<ICoreWebView2HttpHeadersCollectionIterator> iterator;
+  if (headers == nullptr || FAILED(headers->GetIterator(iterator.put()))) {
+    return {};
+  }
+  return ReadHttpHeaders(iterator.get());
+}
+
+std::map<std::string, std::string>
+ReadHttpHeaders(ICoreWebView2HttpResponseHeaders *headers) {
+  wil::com_ptr<ICoreWebView2HttpHeadersCollectionIterator> iterator;
+  if (headers == nullptr || FAILED(headers->GetIterator(iterator.put()))) {
+    return {};
+  }
+  return ReadHttpHeaders(iterator.get());
 }
 
 double GetFlutterScrollOffsetMultiplier() {
@@ -66,6 +115,23 @@ WebViewPermissionStateToCW2PermissionState(WebviewPermissionState state) {
     return s::COREWEBVIEW2_PERMISSION_STATE_DENY;
   default:
     return s::COREWEBVIEW2_PERMISSION_STATE_DEFAULT;
+  }
+}
+
+inline WebviewJavaScriptDialogKind CW2ScriptDialogKindToJavaScriptDialogKind(
+    COREWEBVIEW2_SCRIPT_DIALOG_KIND kind) {
+  using k = COREWEBVIEW2_SCRIPT_DIALOG_KIND;
+  switch (kind) {
+  case k::COREWEBVIEW2_SCRIPT_DIALOG_KIND_ALERT:
+    return WebviewJavaScriptDialogKind::Alert;
+  case k::COREWEBVIEW2_SCRIPT_DIALOG_KIND_CONFIRM:
+    return WebviewJavaScriptDialogKind::Confirm;
+  case k::COREWEBVIEW2_SCRIPT_DIALOG_KIND_PROMPT:
+    return WebviewJavaScriptDialogKind::Prompt;
+  case k::COREWEBVIEW2_SCRIPT_DIALOG_KIND_BEFOREUNLOAD:
+    return WebviewJavaScriptDialogKind::BeforeUnload;
+  default:
+    return WebviewJavaScriptDialogKind::Alert;
   }
 }
 
@@ -140,7 +206,15 @@ Webview::Webview(
 
   wil::com_ptr<ICoreWebView2Settings> settings;
   if (SUCCEEDED(webview_->get_Settings(settings.put()))) {
+    settings_ = settings;
     settings2_ = settings.try_query<ICoreWebView2Settings2>();
+    if (settings2_) {
+      wil::unique_cotaskmem_string default_user_agent;
+      if (SUCCEEDED(settings2_->get_UserAgent(&default_user_agent)) &&
+          default_user_agent != nullptr) {
+        default_user_agent_ = util::Utf8FromUtf16(default_user_agent.get());
+      }
+    }
 
     settings->put_IsStatusBarEnabled(FALSE);
     settings->put_AreDefaultContextMenusEnabled(FALSE);
@@ -270,6 +344,83 @@ void Webview::RegisterEventHandlers() {
           .Get(),
       &event_registrations_.navigation_completed_token_);
 
+  auto webview2 = webview_.try_query<ICoreWebView2_2>();
+  if (webview2) {
+    webview2->add_WebResourceResponseReceived(
+        Callback<ICoreWebView2WebResourceResponseReceivedEventHandler>(
+            [this](ICoreWebView2 *sender,
+                   ICoreWebView2WebResourceResponseReceivedEventArgs *args)
+                -> HRESULT {
+              if (!http_response_error_callback_) {
+                return S_OK;
+              }
+
+              wil::com_ptr<ICoreWebView2WebResourceResponseView> response;
+              if (FAILED(args->get_Response(response.put())) || !response) {
+                return S_OK;
+              }
+
+              int status_code = 0;
+              if (FAILED(response->get_StatusCode(&status_code)) ||
+                  status_code < 400) {
+                return S_OK;
+              }
+
+              wil::com_ptr<ICoreWebView2WebResourceRequest> request;
+              if (FAILED(args->get_Request(request.put())) || !request) {
+                return S_OK;
+              }
+
+              wil::unique_cotaskmem_string wuri;
+              if (FAILED(request->get_Uri(&wuri))) {
+                return S_OK;
+              }
+
+              std::string url;
+              if (wuri != nullptr) {
+                url = util::Utf8FromUtf16(wuri.get());
+              }
+
+              std::string method;
+              wil::unique_cotaskmem_string wmethod;
+              if (SUCCEEDED(request->get_Method(&wmethod)) &&
+                  wmethod != nullptr) {
+                method = util::Utf8FromUtf16(wmethod.get());
+              }
+
+              std::map<std::string, std::string> request_headers;
+              wil::com_ptr<ICoreWebView2HttpRequestHeaders>
+                  native_request_headers;
+              if (SUCCEEDED(
+                      request->get_Headers(native_request_headers.put()))) {
+                request_headers = ReadHttpHeaders(native_request_headers.get());
+              }
+
+              std::map<std::string, std::string> response_headers;
+              wil::com_ptr<ICoreWebView2HttpResponseHeaders>
+                  native_response_headers;
+              if (SUCCEEDED(
+                      response->get_Headers(native_response_headers.put()))) {
+                response_headers =
+                    ReadHttpHeaders(native_response_headers.get());
+              }
+
+              std::optional<std::string> reason_phrase;
+              wil::unique_cotaskmem_string wreason_phrase;
+              if (SUCCEEDED(response->get_ReasonPhrase(&wreason_phrase)) &&
+                  wreason_phrase != nullptr) {
+                reason_phrase = util::Utf8FromUtf16(wreason_phrase.get());
+              }
+
+              http_response_error_callback_({url, method, request_headers,
+                                             status_code, response_headers,
+                                             reason_phrase});
+              return S_OK;
+            })
+            .Get(),
+        &event_registrations_.web_resource_response_received_token_);
+  }
+
   webview_->add_HistoryChanged(
       Callback<ICoreWebView2HistoryChangedEventHandler>(
           [this](ICoreWebView2 *sender, IUnknown *args) -> HRESULT {
@@ -384,7 +535,9 @@ void Webview::RegisterEventHandlers() {
                 args->get_PermissionKind(&kind) == S_OK &&
                 args->get_IsUserInitiated(&is_user_initiated) == S_OK) {
               wil::com_ptr<ICoreWebView2Deferral> deferral;
-              args->GetDeferral(deferral.put());
+              if (FAILED(args->GetDeferral(deferral.put())) || !deferral) {
+                return S_OK;
+              }
 
               const std::string uri = util::Utf8FromUtf16(wuri.get());
               permission_requested_callback_(
@@ -402,6 +555,195 @@ void Webview::RegisterEventHandlers() {
           })
           .Get(),
       &event_registrations_.permission_requested_token_);
+
+  auto webview10 = webview_.try_query<ICoreWebView2_10>();
+  if (webview10) {
+    webview10->add_BasicAuthenticationRequested(
+        Callback<ICoreWebView2BasicAuthenticationRequestedEventHandler>(
+            [this](ICoreWebView2 *sender,
+                   ICoreWebView2BasicAuthenticationRequestedEventArgs *args)
+                -> HRESULT {
+              if (!http_auth_requested_callback_) {
+                return S_OK;
+              }
+
+              wil::unique_cotaskmem_string wuri;
+              wil::unique_cotaskmem_string wchallenge;
+              wil::com_ptr<ICoreWebView2BasicAuthenticationResponse> response;
+              if (FAILED(args->get_Uri(&wuri)) ||
+                  FAILED(args->get_Challenge(&wchallenge)) ||
+                  FAILED(args->get_Response(response.put())) || !response) {
+                return S_OK;
+              }
+
+              wil::com_ptr<ICoreWebView2Deferral> deferral;
+              if (FAILED(args->GetDeferral(deferral.put())) || !deferral) {
+                return S_OK;
+              }
+
+              wil::com_ptr<ICoreWebView2BasicAuthenticationRequestedEventArgs>
+                  auth_args;
+              args->AddRef();
+              auth_args.attach(args);
+
+              WebviewHttpAuthRequest request{
+                  util::Utf8FromUtf16(wuri.get()),
+                  util::Utf8FromUtf16(wchallenge.get())};
+              http_auth_requested_callback_(
+                  request, [deferral = std::move(deferral),
+                            auth_args = std::move(auth_args),
+                            response = std::move(response)](
+                               bool accepted, const std::string &user,
+                               const std::string &password) mutable {
+                    if (accepted) {
+                      const std::wstring user_utf16 = util::Utf16FromUtf8(user);
+                      const std::wstring password_utf16 =
+                          util::Utf16FromUtf8(password);
+                      response->put_UserName(user_utf16.c_str());
+                      response->put_Password(password_utf16.c_str());
+                      auth_args->put_Cancel(FALSE);
+                    } else {
+                      auth_args->put_Cancel(TRUE);
+                    }
+                    deferral->Complete();
+                  });
+
+              return S_OK;
+            })
+            .Get(),
+        &event_registrations_.basic_authentication_requested_token_);
+  }
+
+  auto webview14 = webview_.try_query<ICoreWebView2_14>();
+  if (webview14) {
+    webview14->add_ServerCertificateErrorDetected(
+        Callback<ICoreWebView2ServerCertificateErrorDetectedEventHandler>(
+            [this](ICoreWebView2 *sender,
+                   ICoreWebView2ServerCertificateErrorDetectedEventArgs *args)
+                -> HRESULT {
+              if (!ssl_auth_error_callback_) {
+                args->put_Action(
+                    COREWEBVIEW2_SERVER_CERTIFICATE_ERROR_ACTION_CANCEL);
+                return S_OK;
+              }
+
+              COREWEBVIEW2_WEB_ERROR_STATUS status =
+                  COREWEBVIEW2_WEB_ERROR_STATUS_UNKNOWN;
+              wil::unique_cotaskmem_string request_uri;
+              if (FAILED(args->get_ErrorStatus(&status)) ||
+                  FAILED(args->get_RequestUri(&request_uri))) {
+                args->put_Action(
+                    COREWEBVIEW2_SERVER_CERTIFICATE_ERROR_ACTION_CANCEL);
+                return S_OK;
+              }
+
+              wil::com_ptr<ICoreWebView2Deferral> deferral;
+              if (FAILED(args->GetDeferral(deferral.put())) || !deferral) {
+                args->put_Action(
+                    COREWEBVIEW2_SERVER_CERTIFICATE_ERROR_ACTION_CANCEL);
+                return S_OK;
+              }
+
+              wil::com_ptr<ICoreWebView2ServerCertificateErrorDetectedEventArgs>
+                  error_args;
+              args->AddRef();
+              error_args.attach(args);
+
+              ssl_auth_error_callback_(
+                  {util::Utf8FromUtf16(request_uri.get()), status},
+                  [deferral = std::move(deferral),
+                   error_args = std::move(error_args)](bool proceed) mutable {
+                    error_args->put_Action(
+                        proceed
+                            ? COREWEBVIEW2_SERVER_CERTIFICATE_ERROR_ACTION_ALWAYS_ALLOW
+                            : COREWEBVIEW2_SERVER_CERTIFICATE_ERROR_ACTION_CANCEL);
+                    deferral->Complete();
+                  });
+
+              return S_OK;
+            })
+            .Get(),
+        &event_registrations_.server_certificate_error_detected_token_);
+  }
+
+  webview_->add_ScriptDialogOpening(
+      Callback<ICoreWebView2ScriptDialogOpeningEventHandler>(
+          [this](ICoreWebView2 *sender,
+                 ICoreWebView2ScriptDialogOpeningEventArgs *args) -> HRESULT {
+            if (!java_script_dialog_requested_callback_) {
+              return S_OK;
+            }
+
+            COREWEBVIEW2_SCRIPT_DIALOG_KIND raw_kind =
+                COREWEBVIEW2_SCRIPT_DIALOG_KIND_ALERT;
+            if (FAILED(args->get_Kind(&raw_kind))) {
+              return S_OK;
+            }
+
+            const WebviewJavaScriptDialogKind kind =
+                CW2ScriptDialogKindToJavaScriptDialogKind(raw_kind);
+            bool enabled = false;
+            switch (kind) {
+            case WebviewJavaScriptDialogKind::Alert:
+              enabled = java_script_alert_dialog_enabled_;
+              break;
+            case WebviewJavaScriptDialogKind::Confirm:
+              enabled = java_script_confirm_dialog_enabled_;
+              break;
+            case WebviewJavaScriptDialogKind::Prompt:
+              enabled = java_script_prompt_dialog_enabled_;
+              break;
+            case WebviewJavaScriptDialogKind::BeforeUnload:
+              enabled = false;
+              break;
+            }
+            if (!enabled) {
+              return S_OK;
+            }
+
+            wil::unique_cotaskmem_string wuri;
+            wil::unique_cotaskmem_string wmessage;
+            if (FAILED(args->get_Uri(&wuri)) ||
+                FAILED(args->get_Message(&wmessage))) {
+              return S_OK;
+            }
+
+            WebviewJavaScriptDialogRequest request{
+                kind, util::Utf8FromUtf16(wuri.get()),
+                util::Utf8FromUtf16(wmessage.get()), std::nullopt};
+            if (kind == WebviewJavaScriptDialogKind::Prompt) {
+              wil::unique_cotaskmem_string wdefault_text;
+              if (SUCCEEDED(args->get_DefaultText(&wdefault_text))) {
+                request.default_text = util::Utf8FromUtf16(wdefault_text.get());
+              }
+            }
+
+            wil::com_ptr<ICoreWebView2Deferral> deferral;
+            args->GetDeferral(deferral.put());
+
+            wil::com_ptr<ICoreWebView2ScriptDialogOpeningEventArgs> dialog_args;
+            args->AddRef();
+            dialog_args.attach(args);
+            java_script_dialog_requested_callback_(
+                request, [deferral = std::move(deferral),
+                          dialog_args = std::move(dialog_args), kind](
+                             bool accepted,
+                             const std::optional<std::string> &text) mutable {
+                  if (accepted) {
+                    if (kind == WebviewJavaScriptDialogKind::Prompt && text) {
+                      const std::wstring text_utf16 =
+                          util::Utf16FromUtf8(*text);
+                      dialog_args->put_ResultText(text_utf16.c_str());
+                    }
+                    dialog_args->Accept();
+                  }
+                  deferral->Complete();
+                });
+
+            return S_OK;
+          })
+          .Get(),
+      &event_registrations_.script_dialog_opening_token_);
 
   webview_->add_NewWindowRequested(
       Callback<ICoreWebView2NewWindowRequestedEventHandler>(
@@ -729,6 +1071,45 @@ bool Webview::ClearCache() {
                                               L"{}", nullptr) == S_OK;
 }
 
+void Webview::ClearLocalStorage(OperationCompletedCallback callback) {
+  if (!IsValid()) {
+    callback(false);
+    return;
+  }
+
+  auto webview13 = webview_.try_query<ICoreWebView2_13>();
+  if (!webview13) {
+    callback(false);
+    return;
+  }
+
+  wil::com_ptr<ICoreWebView2Profile> profile;
+  if (FAILED(webview13->get_Profile(profile.put())) || !profile) {
+    callback(false);
+    return;
+  }
+
+  auto profile2 = profile.try_query<ICoreWebView2Profile2>();
+  if (!profile2) {
+    callback(false);
+    return;
+  }
+
+  auto completion =
+      std::make_shared<OperationCompletedCallback>(std::move(callback));
+  HRESULT hr = profile2->ClearBrowsingData(
+      COREWEBVIEW2_BROWSING_DATA_KINDS_ALL_DOM_STORAGE,
+      Callback<ICoreWebView2ClearBrowsingDataCompletedHandler>(
+          [completion](HRESULT error_code) -> HRESULT {
+            (*completion)(SUCCEEDED(error_code));
+            return S_OK;
+          })
+          .Get());
+  if (FAILED(hr)) {
+    (*completion)(false);
+  }
+}
+
 bool Webview::SetCacheDisabled(bool disabled) {
   if (!IsValid()) {
     return false;
@@ -743,10 +1124,48 @@ void Webview::SetPopupWindowPolicy(WebviewPopupWindowPolicy policy) {
   popup_window_policy_ = policy;
 }
 
-bool Webview::SetUserAgent(const std::string &user_agent) {
+void Webview::SetJavaScriptDialogCallbacksEnabled(bool alert, bool confirm,
+                                                  bool prompt) {
+  java_script_alert_dialog_enabled_ = alert;
+  java_script_confirm_dialog_enabled_ = confirm;
+  java_script_prompt_dialog_enabled_ = prompt;
+}
+
+bool Webview::SetUserAgent(const std::string *user_agent) {
   if (settings2_) {
-    return settings2_->put_UserAgent(util::Utf16FromUtf8(user_agent).c_str()) ==
-           S_OK;
+    if (user_agent == nullptr && default_user_agent_.empty()) {
+      return false;
+    }
+    const std::string &resolved_user_agent =
+        user_agent != nullptr ? *user_agent : default_user_agent_;
+    return settings2_->put_UserAgent(
+               util::Utf16FromUtf8(resolved_user_agent).c_str()) == S_OK;
+  }
+  return false;
+}
+
+std::optional<std::string> Webview::GetUserAgent() {
+  if (!settings2_) {
+    return std::nullopt;
+  }
+
+  wil::unique_cotaskmem_string user_agent;
+  if (FAILED(settings2_->get_UserAgent(&user_agent)) || user_agent == nullptr) {
+    return std::nullopt;
+  }
+  return util::Utf8FromUtf16(user_agent.get());
+}
+
+bool Webview::SetJavaScriptEnabled(bool enabled) {
+  if (settings_) {
+    return settings_->put_IsScriptEnabled(enabled ? TRUE : FALSE) == S_OK;
+  }
+  return false;
+}
+
+bool Webview::SetZoomControlEnabled(bool enabled) {
+  if (settings_) {
+    return settings_->put_IsZoomControlEnabled(enabled ? TRUE : FALSE) == S_OK;
   }
   return false;
 }
@@ -933,6 +1352,27 @@ void Webview::LoadUrl(const std::string &url) {
   if (IsValid()) {
     webview_->Navigate(util::Utf16FromUtf8(url).c_str());
   }
+}
+
+bool Webview::LoadRequest(const std::string &url, const std::string &method,
+                          const std::string &headers,
+                          const std::vector<uint8_t> *body) {
+  if (!IsValid()) {
+    return false;
+  }
+
+  auto webview2 = webview_.try_query<ICoreWebView2_2>();
+  if (!webview2) {
+    return false;
+  }
+
+  wil::com_ptr<ICoreWebView2WebResourceRequest> request =
+      host_->CreateWebResourceRequest(url, method, headers, body);
+  if (!request) {
+    return false;
+  }
+
+  return SUCCEEDED(webview2->NavigateWithWebResourceRequest(request.get()));
 }
 
 void Webview::LoadStringContent(const std::string &content) {
