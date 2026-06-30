@@ -32,6 +32,11 @@ export interface HttpAuthHandler {
   useHttpAuthUsernamePassword(): boolean;
 }
 
+export interface SslAuthHandler {
+  cancel(): void;
+  proceed(): void;
+}
+
 export class OhosWebViewCallbackApiChannel {
   private channel: MethodChannel;
 
@@ -100,6 +105,10 @@ export class OhosWebViewCallbackApiChannel {
 
   createHttpAuthHandler(instanceId: number, callback?: Reply<void>): void {
     this.invoke('HttpAuthHandler.create', new Map<string, ESObject>().set('instanceId', instanceId), callback);
+  }
+
+  createSslAuthHandler(instanceId: number, callback?: Reply<void>): void {
+    this.invoke('SslAuthHandler.create', new Map<string, ESObject>().set('instanceId', instanceId), callback);
   }
 
   private resultFor<T>(callback: Reply<T>): MethodResult {
