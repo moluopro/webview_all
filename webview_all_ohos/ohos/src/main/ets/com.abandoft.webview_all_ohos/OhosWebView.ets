@@ -1,6 +1,5 @@
 import web_webview from '@ohos.web.webview';
 import PlatformView from '@ohos/flutter_ohos/src/main/ets/plugin/platform/PlatformView';
-import { deviceInfo } from '@kit.BasicServicesKit';
 import { WebViewPlatformView } from './WebViewPlatformView';
 
 @Observed
@@ -51,6 +50,7 @@ export struct OhosWebView {
           .onPageBegin(this.webView.onPageBegin)
           .onPageEnd(this.webView.onPageEnd)
           .onErrorReceive(this.webView.onErrorReceive)
+          .onHttpErrorReceive(this.webView.onHttpErrorReceive)
           .onRefreshAccessedHistory(this.webView.onRefreshAccessedHistory)
           .onProgressChange(this.webView.onProgressChange)
           .onGeolocationShow(this.webView.onGeolocationShow)
@@ -60,14 +60,7 @@ export struct OhosWebView {
           .onConsole(this.webView.onConsoleMessage)
           .onWindowExit(this.webView.onWindowExit)
           .onWindowNew(this.webView.onWindowNew)
-          .onSslErrorEventReceive((event) => {
-            const handler: ESObject = event.handler as ESObject;
-            if (deviceInfo.sdkApiVersion >= 20) {
-              handler.handleCancel(true);
-            } else {
-              handler.handleCancel();
-            }
-          })
+          .onSslErrorEventReceive(this.webView.onSslErrorEventReceive)
           .onHttpAuthRequest(this.webView.onHttpAuthRequest)
           .onAlert(this.webView.onJsAlert)
           .onConfirm(this.webView.onJsConfirm)
