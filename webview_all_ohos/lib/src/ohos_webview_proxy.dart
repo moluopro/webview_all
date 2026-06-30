@@ -27,41 +27,48 @@ class OhosWebViewProxy {
   /// Constructs a [ohos_webview.WebView].
   final ohos_webview.WebView Function({
     void Function(int left, int top, int oldLeft, int oldTop)? onScrollChanged,
-  }) createOhosWebView;
+  })
+  createOhosWebView;
 
   /// Constructs a [ohos_webview.WebChromeClient].
   final ohos_webview.WebChromeClient Function({
     void Function(ohos_webview.WebView webView, int progress)?
-        onProgressChanged,
+    onProgressChanged,
     Future<List<String>> Function(
       ohos_webview.WebView webView,
       ohos_webview.FileChooserParams params,
-    )? onShowFileChooser,
+    )?
+    onShowFileChooser,
     void Function(
       ohos_webview.WebChromeClient instance,
       ohos_webview.PermissionRequest request,
-    )? onPermissionRequest,
+    )?
+    onPermissionRequest,
     Future<void> Function(
       String origin,
       ohos_webview.GeolocationPermissionsCallback callback,
-    )? onGeolocationPermissionsShowPrompt,
+    )?
+    onGeolocationPermissionsShowPrompt,
     void Function(ohos_webview.WebChromeClient instance)?
-        onGeolocationPermissionsHidePrompt,
+    onGeolocationPermissionsHidePrompt,
     void Function(
       ohos_webview.WebChromeClient instance,
       ohos_webview.ConsoleMessage message,
-    )? onConsoleMessage,
+    )?
+    onConsoleMessage,
     void Function(
       ohos_webview.WebChromeClient instance,
       ohos_webview.View view,
       ohos_webview.CustomViewCallback callback,
-    )? onShowCustomView,
+    )?
+    onShowCustomView,
     void Function(ohos_webview.WebChromeClient instance)? onHideCustomView,
     Future<void> Function(String url, String message)? onJsAlert,
     Future<bool> Function(String url, String message)? onJsConfirm,
     Future<String> Function(String url, String message, String defaultValue)?
-        onJsPrompt,
-  }) createOhosWebChromeClient;
+    onJsPrompt,
+  })
+  createOhosWebChromeClient;
 
   /// Constructs a [ohos_webview.WebViewClient].
   final ohos_webview.WebViewClient Function({
@@ -71,28 +78,47 @@ class OhosWebViewProxy {
       ohos_webview.WebView webView,
       ohos_webview.WebResourceRequest request,
       ohos_webview.WebResourceError error,
-    )? onReceivedRequestError,
+    )?
+    onReceivedRequestError,
+    void Function(
+      ohos_webview.WebView webView,
+      ohos_webview.WebResourceRequest request,
+      ohos_webview.WebResourceResponse response,
+    )?
+    onReceivedHttpError,
     @Deprecated('Only called on Ohos version < 23.')
     void Function(
       ohos_webview.WebView webView,
       int errorCode,
       String description,
       String failingUrl,
-    )? onReceivedError,
+    )?
+    onReceivedError,
     void Function(
       ohos_webview.WebView webView,
       ohos_webview.WebResourceRequest request,
-    )? requestLoading,
+    )?
+    requestLoading,
     void Function(ohos_webview.WebView webView, String url)? urlLoading,
     void Function(ohos_webview.WebView webView, String url, bool isReload)?
-        doUpdateVisitedHistory,
+    doUpdateVisitedHistory,
     void Function(
       ohos_webview.WebView webView,
       ohos_webview.HttpAuthHandler handler,
       String host,
       String realm,
-    )? onReceivedHttpAuthRequest,
-  }) createOhosWebViewClient;
+    )?
+    onReceivedHttpAuthRequest,
+    void Function(
+      ohos_webview.WebView webView,
+      ohos_webview.SslAuthHandler handler,
+      String url,
+      int errorCode,
+      String description,
+    )?
+    onReceivedSslAuthError,
+  })
+  createOhosWebViewClient;
 
   /// Constructs a [ohos_webview.FlutterAssetManager].
   final ohos_webview.FlutterAssetManager Function() createFlutterAssetManager;
@@ -101,7 +127,8 @@ class OhosWebViewProxy {
   final ohos_webview.JavaScriptChannel Function(
     String channelName, {
     required void Function(String) postMessage,
-  }) createJavaScriptChannel;
+  })
+  createJavaScriptChannel;
 
   /// Constructs a [ohos_webview.DownloadListener].
   final ohos_webview.DownloadListener Function({
@@ -111,8 +138,10 @@ class OhosWebViewProxy {
       String contentDisposition,
       String mimetype,
       int contentLength,
-    ) onDownloadStart,
-  }) createDownloadListener;
+    )
+    onDownloadStart,
+  })
+  createDownloadListener;
 
   /// Enables debugging of web contents (HTML / CSS / JavaScript) loaded into any WebViews of this application.
   ///
