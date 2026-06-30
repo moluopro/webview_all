@@ -1,0 +1,20 @@
+:root {
+  --sl-color-accent-low: #ccfbf1;
+  --sl-color-accent: #0f766e;
+  --sl-color-accent-high: #134e4a;
+}
+
+:root[data-theme='dark'] {
+  --sl-color-accent-low: #134e4a;
+  --sl-color-accent: #2dd4bf;
+  --sl-color-accent-high: #ccfbf1;
+}
+
+.sl-markdown-content table {
+  font-size: 0.925rem;
+}
+
+.sl-markdown-content td code,
+.sl-markdown-content th code {
+  white-space: nowrap;
+}
