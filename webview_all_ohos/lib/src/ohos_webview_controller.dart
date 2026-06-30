@@ -7,6 +7,7 @@
 // ignore_for_file: cast_to_non_type, undefined_class, undefined_method
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -32,7 +33,18 @@ class OhosWebViewControllerCreationParams
     extends PlatformWebViewControllerCreationParams {
   /// Creates a new [OhosWebViewControllerCreationParams] instance.
   OhosWebViewControllerCreationParams({
-    bool? this.isAllowFullScreenRotate = false,
+    this.isAllowFullScreenRotate = false,
+    this.domStorageEnabled = true,
+    this.javaScriptCanOpenWindowsAutomatically = true,
+    this.supportMultipleWindows = true,
+    this.loadWithOverviewMode = true,
+    this.useWideViewPort = true,
+    this.displayZoomControls = false,
+    this.builtInZoomControls = true,
+    this.allowFileAccess,
+    this.mediaPlaybackRequiresUserGesture,
+    this.supportZoom,
+    this.textZoom,
     @visibleForTesting this.ohosWebViewProxy = const OhosWebViewProxy(),
     @visibleForTesting ohos_webview.WebStorage? ohosWebStorage,
   }) : ohosWebStorage = ohosWebStorage ?? ohos_webview.WebStorage.instance,
@@ -44,12 +56,35 @@ class OhosWebViewControllerCreationParams
     // ignore: avoid_unused_constructor_parameters
     PlatformWebViewControllerCreationParams params, {
     bool? isAllowFullScreenRotate = false,
+    bool domStorageEnabled = true,
+    bool javaScriptCanOpenWindowsAutomatically = true,
+    bool supportMultipleWindows = true,
+    bool loadWithOverviewMode = true,
+    bool useWideViewPort = true,
+    bool displayZoomControls = false,
+    bool builtInZoomControls = true,
+    bool? allowFileAccess,
+    bool? mediaPlaybackRequiresUserGesture,
+    bool? supportZoom,
+    int? textZoom,
     @visibleForTesting
     OhosWebViewProxy ohosWebViewProxy = const OhosWebViewProxy(),
     @visibleForTesting ohos_webview.WebStorage? ohosWebStorage,
   }) {
     return OhosWebViewControllerCreationParams(
       isAllowFullScreenRotate: isAllowFullScreenRotate,
+      domStorageEnabled: domStorageEnabled,
+      javaScriptCanOpenWindowsAutomatically:
+          javaScriptCanOpenWindowsAutomatically,
+      supportMultipleWindows: supportMultipleWindows,
+      loadWithOverviewMode: loadWithOverviewMode,
+      useWideViewPort: useWideViewPort,
+      displayZoomControls: displayZoomControls,
+      builtInZoomControls: builtInZoomControls,
+      allowFileAccess: allowFileAccess,
+      mediaPlaybackRequiresUserGesture: mediaPlaybackRequiresUserGesture,
+      supportZoom: supportZoom,
+      textZoom: textZoom,
       ohosWebViewProxy: ohosWebViewProxy,
       ohosWebStorage: ohosWebStorage ?? ohos_webview.WebStorage.instance,
     );
@@ -57,6 +92,47 @@ class OhosWebViewControllerCreationParams
 
   /// Enables or disables full screen rotate within WebView.
   final bool? isAllowFullScreenRotate;
+
+  /// Whether DOM storage is enabled.
+  final bool domStorageEnabled;
+
+  /// Whether JavaScript may open windows automatically.
+  final bool javaScriptCanOpenWindowsAutomatically;
+
+  /// Whether the WebView should support multiple windows.
+  final bool supportMultipleWindows;
+
+  /// Whether pages are loaded in overview mode.
+  final bool loadWithOverviewMode;
+
+  /// Whether wide viewport support is enabled.
+  final bool useWideViewPort;
+
+  /// Whether on-screen zoom controls are displayed.
+  final bool displayZoomControls;
+
+  /// Whether built-in zoom mechanisms are enabled.
+  final bool builtInZoomControls;
+
+  /// Whether file access is enabled.
+  ///
+  /// When null, the platform default is left unchanged.
+  final bool? allowFileAccess;
+
+  /// Whether media playback requires a user gesture.
+  ///
+  /// When null, the platform default is left unchanged.
+  final bool? mediaPlaybackRequiresUserGesture;
+
+  /// Whether zoom support is enabled.
+  ///
+  /// When null, the platform default is left unchanged.
+  final bool? supportZoom;
+
+  /// Initial text zoom in percent.
+  ///
+  /// When null, the platform default is left unchanged.
+  final int? textZoom;
 
   /// Handles constructing objects and calling static methods for the Ohos WebView
   /// native library.
@@ -93,18 +169,41 @@ class OhosWebViewController extends PlatformWebViewController {
                 params,
               ),
       ) {
+    final OhosWebViewControllerCreationParams creationParams =
+        _ohosWebViewParams;
     _webView.settings.setAllowFullScreenRotate(
-      params is OhosWebViewControllerCreationParams
-          ? params.isAllowFullScreenRotate ?? false
-          : false,
+      creationParams.isAllowFullScreenRotate ?? false,
     );
-    _webView.settings.setDomStorageEnabled(true);
-    _webView.settings.setJavaScriptCanOpenWindowsAutomatically(true);
-    _webView.settings.setSupportMultipleWindows(true);
-    _webView.settings.setLoadWithOverviewMode(true);
-    _webView.settings.setUseWideViewPort(true);
-    _webView.settings.setDisplayZoomControls(false);
-    _webView.settings.setBuiltInZoomControls(true);
+    _webView.settings.setDomStorageEnabled(creationParams.domStorageEnabled);
+    _webView.settings.setJavaScriptCanOpenWindowsAutomatically(
+      creationParams.javaScriptCanOpenWindowsAutomatically,
+    );
+    _webView.settings.setSupportMultipleWindows(
+      creationParams.supportMultipleWindows,
+    );
+    _webView.settings.setLoadWithOverviewMode(
+      creationParams.loadWithOverviewMode,
+    );
+    _webView.settings.setUseWideViewPort(creationParams.useWideViewPort);
+    _webView.settings.setDisplayZoomControls(
+      creationParams.displayZoomControls,
+    );
+    _webView.settings.setBuiltInZoomControls(
+      creationParams.builtInZoomControls,
+    );
+    if (creationParams.allowFileAccess case final bool enabled) {
+      _webView.settings.setAllowFileAccess(enabled);
+    }
+    if (creationParams.mediaPlaybackRequiresUserGesture
+        case final bool require) {
+      _webView.settings.setMediaPlaybackRequiresUserGesture(require);
+    }
+    if (creationParams.supportZoom case final bool enabled) {
+      _webView.settings.setSupportZoom(enabled);
+    }
+    if (creationParams.textZoom case final int textZoom) {
+      _webView.settings.setTextZoom(textZoom);
+    }
 
     _webView.setWebChromeClient(_webChromeClient);
   }
@@ -391,6 +490,13 @@ class OhosWebViewController extends PlatformWebViewController {
   void Function(ScrollPositionChange scrollPositionChange)?
   _onScrollPositionChangedCallback;
 
+  bool _verticalScrollBarEnabled = true;
+  bool _horizontalScrollBarEnabled = true;
+  WebViewOverScrollMode _overScrollMode = WebViewOverScrollMode.always;
+
+  static const String _viewportStyleElementId =
+      '__webview_all_ohos_viewport_style';
+
   /// Whether to enable the platform's webview content debugging tools.
   ///
   /// Defaults to false.
@@ -422,6 +528,11 @@ class OhosWebViewController extends PlatformWebViewController {
   }
 
   @override
+  Future<void> loadFileWithParams(LoadFileParams params) {
+    return loadFile(params.absoluteFilePath);
+  }
+
+  @override
   Future<void> loadFlutterAsset(String key) async {
     final String assetFilePath = await _flutterAssetManager
         .getAssetFilePathByName(key);
@@ -434,8 +545,8 @@ class OhosWebViewController extends PlatformWebViewController {
     if (!paths.contains(fileName)) {
       throw ArgumentError('Asset for key "$key" not found.', 'key');
     }
-    _webView.settings.setAllowFileAccess(true);
-    final String url = "resources/rawfile/" + assetFilePath;
+    await _webView.settings.setAllowFileAccess(true);
+    final String url = 'resources/rawfile/$assetFilePath';
     return _webView.loadUrl(url, <String, String>{});
   }
 
@@ -454,26 +565,22 @@ class OhosWebViewController extends PlatformWebViewController {
     if (!params.uri.hasScheme) {
       throw ArgumentError('WebViewRequest#uri is required to have a scheme.');
     }
+
     switch (params.method) {
       case LoadRequestMethod.get:
         return _webView.loadUrl(params.uri.toString(), params.headers);
       case LoadRequestMethod.post:
+        if (params.headers.isNotEmpty) {
+          throw UnsupportedError(
+            'Custom request headers for POST requests are not supported by '
+            'the OHOS ArkWeb postUrl API.',
+          );
+        }
         return _webView.postUrl(
           params.uri.toString(),
           params.body ?? Uint8List(0),
         );
     }
-    // The enum comes from a different package, which could get a new value at
-    // any time, so a fallback case is necessary. Since there is no reasonable
-    // default behavior, throw to alert the client that they need an updated
-    // version. This is deliberately outside the switch rather than a `default`
-    // so that the linter will flag the switch as needing an update.
-    // ignore: dead_code
-    throw UnimplementedError(
-      'This version of `OhosWebViewController` currently has no '
-      'implementation for HTTP method ${params.method.serialize()} in '
-      'loadRequest.',
-    );
   }
 
   @override
@@ -506,11 +613,15 @@ class OhosWebViewController extends PlatformWebViewController {
     covariant OhosNavigationDelegate handler,
   ) async {
     _currentNavigationDelegate = handler;
+    handler._onControllerPageFinished = (_) {
+      unawaited(_applyViewportStyle());
+    };
     await Future.wait(<Future<void>>[
       handler.setOnLoadRequest(loadRequest),
       _webView.setWebViewClient(handler.ohosWebViewClient),
       _webView.setDownloadListener(handler.ohosDownloadListener),
     ]);
+    await _applyViewportStyle();
   }
 
   @override
@@ -523,14 +634,22 @@ class OhosWebViewController extends PlatformWebViewController {
     final String? result = await _webView.evaluateJavascript(javaScript);
 
     if (result == null) {
-      return '';
-    } else if (result == 'true') {
-      return true;
-    } else if (result == 'false') {
-      return false;
+      throw ArgumentError(
+        'The JavaScript returned `null` or `undefined`, which is unsupported.',
+      );
     }
 
-    return num.tryParse(result) ?? result;
+    try {
+      final Object? decoded = jsonDecode(result);
+      if (decoded == null) {
+        throw ArgumentError(
+          'The JavaScript returned `null` or `undefined`, which is unsupported.',
+        );
+      }
+      return decoded;
+    } on FormatException {
+      return num.tryParse(result) ?? result;
+    }
   }
 
   @override
@@ -581,13 +700,27 @@ class OhosWebViewController extends PlatformWebViewController {
   Future<void> scrollBy(int x, int y) => _webView.scrollBy(x, y);
 
   @override
-  Future<void> setVerticalScrollBarEnabled(bool enabled) async {}
+  Future<void> setVerticalScrollBarEnabled(bool enabled) async {
+    if (_verticalScrollBarEnabled == enabled) {
+      return;
+    }
+
+    _verticalScrollBarEnabled = enabled;
+    await _applyViewportStyle();
+  }
 
   @override
-  Future<void> setHorizontalScrollBarEnabled(bool enabled) async {}
+  Future<void> setHorizontalScrollBarEnabled(bool enabled) async {
+    if (_horizontalScrollBarEnabled == enabled) {
+      return;
+    }
+
+    _horizontalScrollBarEnabled = enabled;
+    await _applyViewportStyle();
+  }
 
   @override
-  bool supportsSetScrollBarsEnabled() => false;
+  bool supportsSetScrollBarsEnabled() => true;
 
   @override
   Future<Offset> getScrollPosition() {
@@ -617,6 +750,56 @@ class OhosWebViewController extends PlatformWebViewController {
     onScrollPositionChange,
   ) async {
     _onScrollPositionChangedCallback = onScrollPositionChange;
+  }
+
+  /// Enables or disables full screen rotate within WebView.
+  Future<void> setAllowFullScreenRotate(bool enabled) {
+    return _webView.settings.setAllowFullScreenRotate(enabled);
+  }
+
+  /// Sets whether DOM storage is enabled.
+  Future<void> setDomStorageEnabled(bool enabled) {
+    return _webView.settings.setDomStorageEnabled(enabled);
+  }
+
+  /// Sets whether JavaScript may open windows automatically.
+  Future<void> setJavaScriptCanOpenWindowsAutomatically(bool enabled) {
+    return _webView.settings.setJavaScriptCanOpenWindowsAutomatically(enabled);
+  }
+
+  /// Sets whether the WebView should support multiple windows.
+  Future<void> setSupportMultipleWindows(bool support) {
+    return _webView.settings.setSupportMultipleWindows(support);
+  }
+
+  /// Sets whether pages are loaded in overview mode.
+  Future<void> setLoadWithOverviewMode(bool overview) {
+    return _webView.settings.setLoadWithOverviewMode(overview);
+  }
+
+  /// Sets whether wide viewport support is enabled.
+  Future<void> setUseWideViewPort(bool use) {
+    return _webView.settings.setUseWideViewPort(use);
+  }
+
+  /// Sets whether on-screen zoom controls are displayed.
+  Future<void> setDisplayZoomControls(bool enabled) {
+    return _webView.settings.setDisplayZoomControls(enabled);
+  }
+
+  /// Sets whether built-in zoom mechanisms are enabled.
+  Future<void> setBuiltInZoomControls(bool enabled) {
+    return _webView.settings.setBuiltInZoomControls(enabled);
+  }
+
+  /// Enables or disables file access within WebView.
+  Future<void> setAllowFileAccess(bool enabled) {
+    return _webView.settings.setAllowFileAccess(enabled);
+  }
+
+  /// Sets whether the WebView should support zooming.
+  Future<void> setSupportZoom(bool support) {
+    return _webView.settings.setSupportZoom(support);
   }
 
   /// Sets the restrictions that apply on automatic media playback.
@@ -723,7 +906,62 @@ class OhosWebViewController extends PlatformWebViewController {
   Future<String?> getUserAgent() => _webView.settings.getUserAgentString();
 
   @override
-  Future<void> setOverScrollMode(WebViewOverScrollMode mode) async {}
+  Future<void> setOverScrollMode(WebViewOverScrollMode mode) async {
+    if (_overScrollMode == mode) {
+      return;
+    }
+
+    _overScrollMode = mode;
+    await _applyViewportStyle();
+  }
+
+  Future<void> _applyViewportStyle() async {
+    final StringBuffer css = StringBuffer();
+    if (!_verticalScrollBarEnabled) {
+      css.writeln('*::-webkit-scrollbar:vertical { width: 0 !important; }');
+    }
+    if (!_horizontalScrollBarEnabled) {
+      css.writeln('*::-webkit-scrollbar:horizontal { height: 0 !important; }');
+    }
+
+    final String? overScrollBehavior = switch (_overScrollMode) {
+      WebViewOverScrollMode.always => null,
+      WebViewOverScrollMode.ifContentScrolls => 'contain',
+      WebViewOverScrollMode.never => 'none',
+    };
+    if (overScrollBehavior != null) {
+      css.writeln(
+        'html, body { overscroll-behavior: $overScrollBehavior !important; }',
+      );
+    }
+
+    final String script =
+        '''
+      (function() {
+        var styleId = ${jsonEncode(_viewportStyleElementId)};
+        var css = ${jsonEncode(css.toString())};
+        var style = document.getElementById(styleId);
+        if (!css) {
+          if (style && style.parentNode) {
+            style.parentNode.removeChild(style);
+          }
+          return;
+        }
+        if (!style) {
+          style = document.createElement('style');
+          style.id = styleId;
+          (document.head || document.documentElement).appendChild(style);
+        }
+        style.textContent = css;
+      })();
+    ''';
+
+    try {
+      await _webView.evaluateJavascript(script);
+    } catch (_) {
+      // The document can be unavailable before the first page load.
+    }
+  }
 
   @override
   Future<void> setOnJavaScriptAlertDialog(
@@ -755,38 +993,56 @@ class OhosWebViewController extends PlatformWebViewController {
 
 /// Ohos implementation of [PlatformWebViewPermissionRequest].
 class OhosWebViewPermissionRequest extends PlatformWebViewPermissionRequest {
-  const OhosWebViewPermissionRequest._({
+  OhosWebViewPermissionRequest._({
     required super.types,
     required ohos_webview.PermissionRequest request,
   }) : _request = request;
 
   final ohos_webview.PermissionRequest _request;
+  final Completer<void> _completion = Completer<void>();
+
+  Future<void> _complete(Future<void> Function() action) {
+    if (_completion.isCompleted) {
+      return Future<void>.value();
+    }
+    _completion.complete();
+    return action();
+  }
 
   @override
   Future<void> grant() {
-    return _request.grant(
-      types.map<String>((WebViewPermissionResourceType type) {
-        switch (type) {
-          case WebViewPermissionResourceType.camera:
-            return ohos_webview.PermissionRequest.videoCapture;
-          case WebViewPermissionResourceType.microphone:
-            return ohos_webview.PermissionRequest.audioCapture;
-          case OhosWebViewPermissionResourceType.midiSysex:
-            return ohos_webview.PermissionRequest.midiSysex;
-          case OhosWebViewPermissionResourceType.protectedMediaId:
-            return ohos_webview.PermissionRequest.protectedMediaId;
-        }
-
-        throw UnsupportedError(
-          'Resource of type `${type.name}` is not supported.',
-        );
-      }).toList(),
-    );
+    return _complete(() {
+      final List<String> resources = types
+          .map<String?>(_ohosResourceFromPermissionType)
+          .whereType<String>()
+          .toList();
+      if (resources.isEmpty) {
+        return _request.deny();
+      }
+      return _request.grant(resources);
+    });
   }
 
   @override
   Future<void> deny() {
-    return _request.deny();
+    return _complete(_request.deny);
+  }
+
+  static String? _ohosResourceFromPermissionType(
+    WebViewPermissionResourceType type,
+  ) {
+    switch (type) {
+      case WebViewPermissionResourceType.camera:
+        return ohos_webview.PermissionRequest.videoCapture;
+      case WebViewPermissionResourceType.microphone:
+        return ohos_webview.PermissionRequest.audioCapture;
+      case OhosWebViewPermissionResourceType.midiSysex:
+        return ohos_webview.PermissionRequest.midiSysex;
+      case OhosWebViewPermissionResourceType.protectedMediaId:
+        return ohos_webview.PermissionRequest.protectedMediaId;
+    }
+
+    return null;
   }
 }
 
@@ -1315,11 +1571,12 @@ class OhosNavigationDelegate extends PlatformNavigationDelegate {
         .ohosWebViewProxy
         .createOhosWebViewClient(
           onPageFinished: (ohos_webview.WebView webView, String url) {
-            final PageEventCallback? callback =
-                weakThis.target?._onPageFinished;
+            final OhosNavigationDelegate? target = weakThis.target;
+            final PageEventCallback? callback = target?._onPageFinished;
             if (callback != null) {
               callback(url);
             }
+            target?._onControllerPageFinished?.call(url);
           },
           onPageStarted: (ohos_webview.WebView webView, String url) {
             final PageEventCallback? callback = weakThis.target?._onPageStarted;
@@ -1342,6 +1599,39 @@ class OhosNavigationDelegate extends PlatformNavigationDelegate {
                       description: error.description,
                       url: request.url,
                       isForMainFrame: request.isForMainFrame,
+                    ),
+                  );
+                }
+              },
+          onReceivedHttpError:
+              (
+                ohos_webview.WebView webView,
+                ohos_webview.WebResourceRequest request,
+                ohos_webview.WebResourceResponse response,
+              ) {
+                final HttpResponseErrorCallback? callback =
+                    weakThis.target?._onHttpError;
+                final Uri? uri = Uri.tryParse(request.url);
+                if (callback != null) {
+                  callback(
+                    HttpResponseError(
+                      request: uri == null
+                          ? null
+                          : OhosWebResourceRequest._(
+                              uri: uri,
+                              isForMainFrame: request.isForMainFrame,
+                              isRedirect: request.isRedirect,
+                              hasGesture: request.hasGesture,
+                              method: request.method,
+                              headers: request.requestHeaders,
+                            ),
+                      response: OhosWebResourceResponse._(
+                        uri: uri,
+                        statusCode: response.statusCode,
+                        headers: response.responseHeaders,
+                        reasonPhrase: response.reasonPhrase,
+                        mimeType: response.mimeType,
+                      ),
                     ),
                   );
                 }
@@ -1398,16 +1688,27 @@ class OhosNavigationDelegate extends PlatformNavigationDelegate {
                 final void Function(HttpAuthRequest)? callback =
                     weakThis.target?._onHttpAuthRequest;
                 if (callback != null) {
+                  bool completed = false;
+                  void complete(Future<void> Function() action) {
+                    if (completed) {
+                      return;
+                    }
+                    completed = true;
+                    unawaited(action());
+                  }
+
                   callback(
                     HttpAuthRequest(
                       onProceed: (WebViewCredential credential) {
-                        httpAuthHandler.proceed(
-                          credential.user,
-                          credential.password,
+                        complete(
+                          () => httpAuthHandler.proceed(
+                            credential.user,
+                            credential.password,
+                          ),
                         );
                       },
                       onCancel: () {
-                        httpAuthHandler.cancel();
+                        complete(httpAuthHandler.cancel);
                       },
                       host: host,
                       realm: realm,
@@ -1415,6 +1716,31 @@ class OhosNavigationDelegate extends PlatformNavigationDelegate {
                   );
                 } else {
                   httpAuthHandler.cancel();
+                }
+              },
+          onReceivedSslAuthError:
+              (
+                ohos_webview.WebView webView,
+                ohos_webview.SslAuthHandler sslAuthHandler,
+                String url,
+                int errorCode,
+                String description,
+              ) {
+                final void Function(PlatformSslAuthError)? callback =
+                    weakThis.target?._onSslAuthError;
+                if (callback != null) {
+                  callback(
+                    OhosPlatformSslAuthError._(
+                      handler: sslAuthHandler,
+                      description: description.isEmpty
+                          ? 'SSL certificate error for $url.'
+                          : description,
+                      url: url,
+                      errorCode: errorCode,
+                    ),
+                  );
+                } else {
+                  sslAuthHandler.cancel();
                 }
               },
         );
@@ -1469,11 +1795,14 @@ class OhosNavigationDelegate extends PlatformNavigationDelegate {
   PageEventCallback? _onPageFinished;
   PageEventCallback? _onPageStarted;
   ProgressCallback? _onProgress;
+  HttpResponseErrorCallback? _onHttpError;
   WebResourceErrorCallback? _onWebResourceError;
   NavigationRequestCallback? _onNavigationRequest;
   LoadRequestCallback? _onLoadRequest;
   UrlChangeCallback? _onUrlChange;
   HttpAuthRequestCallback? _onHttpAuthRequest;
+  SslAuthErrorCallback? _onSslAuthError;
+  PageEventCallback? _onControllerPageFinished;
 
   void _handleNavigation(
     String url, {
@@ -1492,11 +1821,12 @@ class OhosNavigationDelegate extends PlatformNavigationDelegate {
     );
 
     if (returnValue is NavigationDecision &&
-        returnValue == NavigationDecision.navigate) {
+        returnValue == NavigationDecision.navigate &&
+        isForMainFrame) {
       onLoadRequest(LoadRequestParams(uri: Uri.parse(url), headers: headers));
     } else if (returnValue is Future<NavigationDecision>) {
       returnValue.then((NavigationDecision shouldLoadUrl) {
-        if (shouldLoadUrl == NavigationDecision.navigate) {
+        if (shouldLoadUrl == NavigationDecision.navigate && isForMainFrame) {
           onLoadRequest(
             LoadRequestParams(uri: Uri.parse(url), headers: headers),
           );
@@ -1532,8 +1862,7 @@ class OhosNavigationDelegate extends PlatformNavigationDelegate {
 
   @override
   Future<void> setOnHttpError(HttpResponseErrorCallback onHttpError) async {
-    // OHOS ArkWeb does not currently expose a compatible HTTP status error
-    // callback through this bridge. Keep the common API safe to register.
+    _onHttpError = onHttpError;
   }
 
   @override
@@ -1562,7 +1891,90 @@ class OhosNavigationDelegate extends PlatformNavigationDelegate {
 
   @override
   Future<void> setOnSSlAuthError(SslAuthErrorCallback onSslAuthError) async {
-    // OHOS ArkWeb does not currently expose a compatible recoverable SSL
-    // auth callback through this bridge. Keep the common API safe to register.
+    _onSslAuthError = onSslAuthError;
+  }
+}
+
+/// OHOS implementation of [WebResourceRequest].
+class OhosWebResourceRequest extends WebResourceRequest {
+  /// Creates a new [OhosWebResourceRequest].
+  const OhosWebResourceRequest._({
+    required super.uri,
+    required this.isForMainFrame,
+    required this.hasGesture,
+    required this.method,
+    this.isRedirect,
+    this.headers = const <String, String>{},
+  });
+
+  /// Whether the request was made for the main frame.
+  final bool isForMainFrame;
+
+  /// Whether the request was a server-side redirect, when available.
+  final bool? isRedirect;
+
+  /// Whether a user gesture was associated with the request.
+  final bool hasGesture;
+
+  /// The HTTP method associated with the request.
+  final String method;
+
+  /// The HTTP request headers reported by ArkWeb.
+  final Map<String, String> headers;
+}
+
+/// OHOS implementation of [WebResourceResponse].
+class OhosWebResourceResponse extends WebResourceResponse {
+  /// Creates a new [OhosWebResourceResponse].
+  const OhosWebResourceResponse._({
+    required super.uri,
+    required super.statusCode,
+    required super.headers,
+    this.reasonPhrase,
+    this.mimeType,
+  });
+
+  /// The HTTP reason phrase reported by ArkWeb, when available.
+  final String? reasonPhrase;
+
+  /// The response MIME type reported by ArkWeb, when available.
+  final String? mimeType;
+}
+
+/// OHOS implementation of [PlatformSslAuthError].
+class OhosPlatformSslAuthError extends PlatformSslAuthError {
+  OhosPlatformSslAuthError._({
+    required ohos_webview.SslAuthHandler handler,
+    required String description,
+    required this.url,
+    required this.errorCode,
+  }) : _handler = handler,
+       super(certificate: null, description: description);
+
+  final ohos_webview.SslAuthHandler _handler;
+  final Completer<void> _completion = Completer<void>();
+
+  /// URL that triggered the recoverable SSL certificate error.
+  final String url;
+
+  /// Native OHOS SSL error code when available.
+  final int errorCode;
+
+  Future<void> _complete(Future<void> Function() action) {
+    if (_completion.isCompleted) {
+      return Future<void>.value();
+    }
+    _completion.complete();
+    return action();
+  }
+
+  @override
+  Future<void> proceed() {
+    return _complete(_handler.proceed);
+  }
+
+  @override
+  Future<void> cancel() {
+    return _complete(_handler.cancel);
   }
 }
