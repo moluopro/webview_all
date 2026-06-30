@@ -11,6 +11,23 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('WebWebViewWidget', () {
+    test('wraps generic widget creation params', () {
+      final controller = WebWebViewController(
+        WebWebViewControllerCreationParams(),
+      );
+
+      final widget = WebWebViewWidget(
+        PlatformWebViewWidgetCreationParams(
+          key: const Key('keyValue'),
+          controller: controller,
+        ),
+      );
+
+      expect(widget.params, isA<WebWebViewWidgetCreationParams>());
+      expect(widget.params.key, const Key('keyValue'));
+      expect(widget.params.controller, controller);
+    });
+
     testWidgets('build returns a HtmlElementView', (WidgetTester tester) async {
       final controller = WebWebViewController(
         WebWebViewControllerCreationParams(),
