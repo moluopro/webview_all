@@ -42,11 +42,28 @@ extension LinuxWebViewControllerEventHandling on LinuxWebViewController {
         break;
       case 'httpError':
         if (_navigationDelegate != null) {
+          final Uri? uri = Uri.tryParse('${event['url'] ?? ''}');
+          final Map<String, String> requestHeaders = _stringMapFromEvent(
+            event['requestHeaders'],
+          );
+          final Map<String, String> responseHeaders = _stringMapFromEvent(
+            event['headers'],
+          );
           _navigationDelegate!.handleHttpError(
             HttpResponseError(
-              response: WebResourceResponse(
-                uri: Uri.tryParse('${event['url'] ?? ''}'),
+              request: uri == null
+                  ? null
+                  : LinuxWebResourceRequest(
+                      uri: uri,
+                      method: event['method'] as String?,
+                      headers: requestHeaders,
+                      isForMainFrame: event['isForMainFrame'] as bool? ?? true,
+                    ),
+              response: LinuxWebResourceResponse(
+                uri: uri,
                 statusCode: (event['statusCode'] as num?)?.toInt() ?? 0,
+                headers: responseHeaders,
+                mimeType: event['mimeType'] as String?,
               ),
             ),
           );
@@ -133,27 +150,32 @@ extension LinuxWebViewControllerEventHandling on LinuxWebViewController {
       return;
     }
 
+    bool completed = false;
+    void complete(Map<String, Object?> arguments) {
+      if (completed) {
+        return;
+      }
+      completed = true;
+      unawaited(_invoke<void>('completeHttpAuthRequest', arguments));
+    }
+
     _navigationDelegate!.handleHttpAuthRequest(
       HttpAuthRequest(
         host: '${event['host'] ?? ''}',
         realm: event['realm'] as String?,
         onProceed: (WebViewCredential credential) {
-          unawaited(
-            _invoke<void>('completeHttpAuthRequest', <String, Object?>{
-              'requestId': requestId,
-              'action': 'proceed',
-              'user': credential.user,
-              'password': credential.password,
-            }),
-          );
+          complete(<String, Object?>{
+            'requestId': requestId,
+            'action': 'proceed',
+            'user': credential.user,
+            'password': credential.password,
+          });
         },
         onCancel: () {
-          unawaited(
-            _invoke<void>('completeHttpAuthRequest', <String, Object?>{
-              'requestId': requestId,
-              'action': 'cancel',
-            }),
-          );
+          complete(<String, Object?>{
+            'requestId': requestId,
+            'action': 'cancel',
+          });
         },
       ),
     );
@@ -203,12 +225,21 @@ extension LinuxWebViewControllerEventHandling on LinuxWebViewController {
 
     final List<Object?> rawTypes =
         (event['types'] as List<Object?>?) ?? const <Object?>[];
+    final Set<WebViewPermissionResourceType> types = rawTypes
+        .map((Object? type) => _parsePermissionType(type as String?))
+        .whereType<WebViewPermissionResourceType>()
+        .toSet();
+    if (types.isEmpty) {
+      await _invoke<void>('completePermissionRequest', <String, Object?>{
+        'requestId': requestId,
+        'grant': false,
+      });
+      return;
+    }
+
     callback(
       LinuxPlatformWebViewPermissionRequest(
-        types: rawTypes
-            .map((Object? type) => _parsePermissionType(type as String?))
-            .whereType<WebViewPermissionResourceType>()
-            .toSet(),
+        types: types,
         onGrant: () {
           return _invoke<void>('completePermissionRequest', <String, Object?>{
             'requestId': requestId,
@@ -326,4 +357,14 @@ extension LinuxWebViewControllerEventHandling on LinuxWebViewController {
     }
     return null;
   }
+}
+
+Map<String, String> _stringMapFromEvent(Object? value) {
+  final Map<String, String> result = <String, String>{};
+  if (value case final Map<dynamic, dynamic> rawHeaders) {
+    for (final MapEntry<dynamic, dynamic> header in rawHeaders.entries) {
+      result['${header.key}'] = '${header.value}';
+    }
+  }
+  return result;
 }
