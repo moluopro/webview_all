@@ -7,11 +7,11 @@ const String _channelName = 'com.abandoft.webview_all_ohos/callback_api';
 
 class OhosWebViewCallbackDispatcher {
   OhosWebViewCallbackDispatcher({BinaryMessenger? binaryMessenger})
-      : _channel = MethodChannel(
-          _channelName,
-          const StandardMethodCodec(),
-          binaryMessenger,
-        );
+    : _channel = MethodChannel(
+        _channelName,
+        const StandardMethodCodec(),
+        binaryMessenger,
+      );
 
   static OhosWebViewCallbackDispatcher instance =
       OhosWebViewCallbackDispatcher();
@@ -75,6 +75,14 @@ class OhosWebViewCallbackDispatcher {
           WebResourceErrorData.fromMessage(args['error']),
         );
         return null;
+      case 'WebViewClient.onReceivedHttpError':
+        apis.webViewClientFlutterApi.onReceivedHttpError(
+          args.intValue('instanceId'),
+          args.intValue('webViewInstanceId'),
+          WebResourceRequestData.fromMessage(args['request']),
+          WebResourceResponseData.fromMessage(args['response']),
+        );
+        return null;
       case 'WebViewClient.onReceivedError':
         apis.webViewClientFlutterApi.onReceivedError(
           args.intValue('instanceId'),
@@ -113,6 +121,16 @@ class OhosWebViewCallbackDispatcher {
           args.intValue('httpAuthHandlerInstanceId'),
           args.stringValue('host'),
           args.stringValue('realm'),
+        );
+        return null;
+      case 'WebViewClient.onReceivedSslAuthError':
+        apis.webViewClientFlutterApi.onReceivedSslAuthError(
+          args.intValue('instanceId'),
+          args.intValue('webViewInstanceId'),
+          args.intValue('sslAuthHandlerInstanceId'),
+          args.stringValue('url'),
+          args.intValue('errorCode'),
+          args.stringValue('description'),
         );
         return null;
       case 'DownloadListener.onDownloadStart':
@@ -222,6 +240,9 @@ class OhosWebViewCallbackDispatcher {
         return null;
       case 'HttpAuthHandler.create':
         apis.httpAuthHandlerFlutterApi.create(args.intValue('instanceId'));
+        return null;
+      case 'SslAuthHandler.create':
+        apis.sslAuthHandlerFlutterApi.create(args.intValue('instanceId'));
         return null;
     }
 
