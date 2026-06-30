@@ -5,6 +5,8 @@
 #include <wil/com.h>
 
 #include <functional>
+#include <string>
+#include <vector>
 
 #include "platform/webview_platform.h"
 #include "rendering/graphics_context.h"
@@ -48,6 +50,11 @@ public:
                      WebviewCreationCallback callback);
 
   void CreateWebViewPointerInfo(PointerInfoCreationCallback cb);
+
+  wil::com_ptr<ICoreWebView2WebResourceRequest>
+  CreateWebResourceRequest(const std::string &url, const std::string &method,
+                           const std::string &headers,
+                           const std::vector<uint8_t> *body);
 
   winrt::com_ptr<ABI::Windows::UI::Composition::ICompositor>
   compositor() const {

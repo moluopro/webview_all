@@ -2,7 +2,10 @@
 
 #include <wrl.h>
 
+#include <cstring>
 #include <future>
+
+#include "util/string_converter.h"
 
 using namespace Microsoft::WRL;
 
@@ -86,6 +89,44 @@ void WebviewHost::CreateWebViewPointerInfo(
     callback(std::move(wil::com_ptr<ICoreWebView2PointerInfo>(pointer)),
              nullptr);
   }
+}
+
+wil::com_ptr<ICoreWebView2WebResourceRequest>
+WebviewHost::CreateWebResourceRequest(const std::string &url,
+                                      const std::string &method,
+                                      const std::string &headers,
+                                      const std::vector<uint8_t> *body) {
+  wil::com_ptr<IStream> body_stream;
+  if (body != nullptr && !body->empty()) {
+    HGLOBAL global = GlobalAlloc(GMEM_MOVEABLE, body->size());
+    if (global == nullptr) {
+      return nullptr;
+    }
+
+    void *data = GlobalLock(global);
+    if (data == nullptr) {
+      GlobalFree(global);
+      return nullptr;
+    }
+    std::memcpy(data, body->data(), body->size());
+    GlobalUnlock(global);
+
+    IStream *stream = nullptr;
+    if (FAILED(CreateStreamOnHGlobal(global, TRUE, &stream))) {
+      GlobalFree(global);
+      return nullptr;
+    }
+    body_stream.attach(stream);
+  }
+
+  wil::com_ptr<ICoreWebView2WebResourceRequest> request;
+  if (FAILED(webview_env_->CreateWebResourceRequest(
+          util::Utf16FromUtf8(url).c_str(), util::Utf16FromUtf8(method).c_str(),
+          body_stream.get(), util::Utf16FromUtf8(headers).c_str(),
+          request.put()))) {
+    return nullptr;
+  }
+  return request;
 }
 
 void WebviewHost::CreateWebViewCompositionController(
