@@ -555,6 +555,65 @@ class WindowsVirtualHostMappingData {
   }
 }
 
+class WindowsLoadRequestData {
+  WindowsLoadRequestData({
+    required this.url,
+    required this.method,
+    required this.headers,
+    this.body,
+  });
+
+  String url;
+
+  String method;
+
+  String headers;
+
+  Uint8List? body;
+
+  List<Object?> _toList() {
+    return <Object?>[url, method, headers, body];
+  }
+
+  Object encode() {
+    return _toList();
+  }
+
+  static WindowsLoadRequestData decode(Object result) {
+    result as List<Object?>;
+    return WindowsLoadRequestData(
+      url: result[0]! as String,
+      method: result[1]! as String,
+      headers: result[2]! as String,
+      body: result[3] as Uint8List?,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! WindowsLoadRequestData || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(url, other.url) &&
+        _deepEquals(method, other.method) &&
+        _deepEquals(headers, other.headers) &&
+        _deepEquals(body, other.body);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+
+  @override
+  String toString() {
+    return 'WindowsLoadRequestData(url: $url, method: $method, headers: $headers, body: $body)';
+  }
+}
+
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
   @override
@@ -586,6 +645,9 @@ class _PigeonCodec extends StandardMessageCodec {
     } else if (value is WindowsVirtualHostMappingData) {
       buffer.putUint8(136);
       writeValue(buffer, value.encode());
+    } else if (value is WindowsLoadRequestData) {
+      buffer.putUint8(137);
+      writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
     }
@@ -610,6 +672,8 @@ class _PigeonCodec extends StandardMessageCodec {
         return WindowsPointerButtonData.decode(readValue(buffer)!);
       case 136:
         return WindowsVirtualHostMappingData.decode(readValue(buffer)!);
+      case 137:
+        return WindowsLoadRequestData.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
     }
@@ -721,6 +785,29 @@ class WindowsWebViewHostApi {
     );
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
       <Object?>[textureId, url],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
+
+  Future<void> loadRequest(
+    int textureId,
+    WindowsLoadRequestData request,
+  ) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.webview_all_windows.WindowsWebViewHostApi.loadRequest$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[textureId, request],
     );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
@@ -919,7 +1006,7 @@ class WindowsWebViewHostApi {
     );
   }
 
-  Future<void> setUserAgent(int textureId, String userAgent) async {
+  Future<void> setUserAgent(int textureId, String? userAgent) async {
     final pigeonVar_channelName =
         'dev.flutter.pigeon.webview_all_windows.WindowsWebViewHostApi.setUserAgent$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
@@ -929,6 +1016,47 @@ class WindowsWebViewHostApi {
     );
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
       <Object?>[textureId, userAgent],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
+
+  Future<String?> getUserAgent(int textureId) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.webview_all_windows.WindowsWebViewHostApi.getUserAgent$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[textureId],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+    return pigeonVar_replyValue as String?;
+  }
+
+  Future<void> setJavaScriptEnabled(int textureId, bool enabled) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.webview_all_windows.WindowsWebViewHostApi.setJavaScriptEnabled$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[textureId, enabled],
     );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
@@ -1090,6 +1218,26 @@ class WindowsWebViewHostApi {
     );
   }
 
+  Future<void> clearLocalStorage(int textureId) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.webview_all_windows.WindowsWebViewHostApi.clearLocalStorage$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[textureId],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
+
   Future<void> setCacheDisabled(int textureId, bool disabled) async {
     final pigeonVar_channelName =
         'dev.flutter.pigeon.webview_all_windows.WindowsWebViewHostApi.setCacheDisabled$pigeonVar_messageChannelSuffix';
@@ -1150,6 +1298,26 @@ class WindowsWebViewHostApi {
     );
   }
 
+  Future<void> setZoomControlEnabled(int textureId, bool enabled) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.webview_all_windows.WindowsWebViewHostApi.setZoomControlEnabled$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[textureId, enabled],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
+
   Future<void> setZoomFactor(int textureId, double zoomFactor) async {
     final pigeonVar_channelName =
         'dev.flutter.pigeon.webview_all_windows.WindowsWebViewHostApi.setZoomFactor$pigeonVar_messageChannelSuffix';
@@ -1180,6 +1348,31 @@ class WindowsWebViewHostApi {
     );
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
       <Object?>[textureId, policy],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
+
+  Future<void> setJavaScriptDialogCallbacksEnabled(
+    int textureId,
+    bool alert,
+    bool confirm,
+    bool prompt,
+  ) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.webview_all_windows.WindowsWebViewHostApi.setJavaScriptDialogCallbacksEnabled$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[textureId, alert, confirm, prompt],
     );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 

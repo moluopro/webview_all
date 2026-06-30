@@ -106,6 +106,20 @@ class WindowsVirtualHostMappingData {
   int accessKind;
 }
 
+class WindowsLoadRequestData {
+  WindowsLoadRequestData({
+    required this.url,
+    required this.method,
+    required this.headers,
+    this.body,
+  });
+
+  String url;
+  String method;
+  String headers;
+  Uint8List? body;
+}
+
 @HostApi()
 abstract class WindowsWebViewHostApi {
   void initializeEnvironment(WindowsEnvironmentOptions options);
@@ -118,6 +132,8 @@ abstract class WindowsWebViewHostApi {
   void disposeWebView(int textureId);
 
   void loadUrl(int textureId, String url);
+
+  void loadRequest(int textureId, WindowsLoadRequestData request);
 
   void loadStringContent(int textureId, String content);
 
@@ -139,7 +155,11 @@ abstract class WindowsWebViewHostApi {
 
   void postWebMessage(int textureId, String message);
 
-  void setUserAgent(int textureId, String userAgent);
+  void setUserAgent(int textureId, String? userAgent);
+
+  String? getUserAgent(int textureId);
+
+  void setJavaScriptEnabled(int textureId, bool enabled);
 
   @async
   bool clearCookies(int textureId);
@@ -162,15 +182,27 @@ abstract class WindowsWebViewHostApi {
 
   void clearCache(int textureId);
 
+  @async
+  void clearLocalStorage(int textureId);
+
   void setCacheDisabled(int textureId, bool disabled);
 
   void openDevTools(int textureId);
 
   void setBackgroundColor(int textureId, int color);
 
+  void setZoomControlEnabled(int textureId, bool enabled);
+
   void setZoomFactor(int textureId, double zoomFactor);
 
   void setPopupWindowPolicy(int textureId, int policy);
+
+  void setJavaScriptDialogCallbacksEnabled(
+    int textureId,
+    bool alert,
+    bool confirm,
+    bool prompt,
+  );
 
   void suspend(int textureId);
 
