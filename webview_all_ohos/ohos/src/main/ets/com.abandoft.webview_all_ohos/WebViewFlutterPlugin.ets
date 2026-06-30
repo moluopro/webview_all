@@ -18,6 +18,7 @@ import { OhosObjectHostApiImpl } from './OhosObjectHostApiImpl';
 import { OhosWebViewCallbackApiChannel } from './OhosWebViewCallbackApiChannel';
 import { OhosWebViewHostApiChannel } from './OhosWebViewHostApiChannel';
 import { PermissionRequestHostApiImpl } from './PermissionRequestHostApiImpl';
+import { SslAuthHandlerHostApiImpl } from './SslAuthHandlerHostApiImpl';
 import { WEBVIEW_ALL_OHOS_VIEW_TYPE } from './WebViewAllConstants';
 import { WebChromeClientCreator, WebChromeClientHostApiImpl } from './WebChromeClientHostApiImpl';
 import { WebChromeClientFlutterApiImpl } from './WebChromeClientFlutterApiImpl';
@@ -122,7 +123,8 @@ export class WebViewFlutterPlugin implements FlutterPlugin {
       new PermissionRequestHostApiImpl(messenger, instanceManager),
       new GeolocationPermissionsCallbackHostApiImpl(messenger, instanceManager),
       new CustomViewCallbackHostApiImpl(messenger, instanceManager),
-      new HttpAuthHandlerHostApiImpl(messenger, instanceManager)
+      new HttpAuthHandlerHostApiImpl(messenger, instanceManager),
+      new SslAuthHandlerHostApiImpl(messenger, instanceManager)
     );
   }
 }
