@@ -7,11 +7,11 @@ const String _channelName = 'com.abandoft.webview_all_ohos/host_api';
 
 class _HostChannel {
   _HostChannel(BinaryMessenger? binaryMessenger)
-      : _channel = MethodChannel(
-          _channelName,
-          const StandardMethodCodec(),
-          binaryMessenger,
-        );
+    : _channel = MethodChannel(
+        _channelName,
+        const StandardMethodCodec(),
+        binaryMessenger,
+      );
 
   final MethodChannel _channel;
 
@@ -39,7 +39,7 @@ List<String?> _stringList(Object? value) {
 
 class InstanceManagerHostApi {
   InstanceManagerHostApi({BinaryMessenger? binaryMessenger})
-      : _host = _HostChannel(binaryMessenger);
+    : _host = _HostChannel(binaryMessenger);
 
   final _HostChannel _host;
 
@@ -50,7 +50,7 @@ class InstanceManagerHostApi {
 
 class OhosObjectHostApi {
   OhosObjectHostApi({BinaryMessenger? binaryMessenger})
-      : _host = _HostChannel(binaryMessenger);
+    : _host = _HostChannel(binaryMessenger);
 
   final _HostChannel _host;
 
@@ -63,7 +63,7 @@ class OhosObjectHostApi {
 
 class CookieManagerHostApi {
   CookieManagerHostApi({BinaryMessenger? binaryMessenger})
-      : _host = _HostChannel(binaryMessenger);
+    : _host = _HostChannel(binaryMessenger);
 
   final _HostChannel _host;
 
@@ -115,7 +115,7 @@ class CookieManagerHostApi {
 
 class WebViewHostApi {
   WebViewHostApi({BinaryMessenger? binaryMessenger})
-      : _host = _HostChannel(binaryMessenger);
+    : _host = _HostChannel(binaryMessenger);
 
   final _HostChannel _host;
 
@@ -303,9 +303,9 @@ class WebViewHostApi {
   ) {
     return _host
         .invoke<void>('WebView.removeJavaScriptChannel', <String, Object?>{
-      'instanceId': instanceId,
-      'javaScriptChannelInstanceId': javaScriptChannelInstanceId,
-    });
+          'instanceId': instanceId,
+          'javaScriptChannelInstanceId': javaScriptChannelInstanceId,
+        });
   }
 
   Future<void> setDownloadListener(int instanceId, int? listenerInstanceId) {
@@ -325,7 +325,7 @@ class WebViewHostApi {
 
 class WebSettingsHostApi {
   WebSettingsHostApi({BinaryMessenger? binaryMessenger})
-      : _host = _HostChannel(binaryMessenger);
+    : _host = _HostChannel(binaryMessenger);
 
   final _HostChannel _host;
 
@@ -342,8 +342,7 @@ class WebSettingsHostApi {
   Future<void> setJavaScriptCanOpenWindowsAutomatically(
     int instanceId,
     bool flag,
-  ) =>
-      _setting('setJavaScriptCanOpenWindowsAutomatically', instanceId, flag);
+  ) => _setting('setJavaScriptCanOpenWindowsAutomatically', instanceId, flag);
 
   Future<void> setSupportMultipleWindows(int instanceId, bool support) =>
       _setting('setSupportMultipleWindows', instanceId, support);
@@ -364,8 +363,7 @@ class WebSettingsHostApi {
   Future<void> setMediaPlaybackRequiresUserGesture(
     int instanceId,
     bool require,
-  ) =>
-      _setting('setMediaPlaybackRequiresUserGesture', instanceId, require);
+  ) => _setting('setMediaPlaybackRequiresUserGesture', instanceId, require);
 
   Future<void> setSupportZoom(int instanceId, bool support) =>
       _setting('setSupportZoom', instanceId, support);
@@ -409,7 +407,7 @@ class WebSettingsHostApi {
 
 class JavaScriptChannelHostApi {
   JavaScriptChannelHostApi({BinaryMessenger? binaryMessenger})
-      : _host = _HostChannel(binaryMessenger);
+    : _host = _HostChannel(binaryMessenger);
 
   final _HostChannel _host;
 
@@ -423,7 +421,7 @@ class JavaScriptChannelHostApi {
 
 class WebViewClientHostApi {
   WebViewClientHostApi({BinaryMessenger? binaryMessenger})
-      : _host = _HostChannel(binaryMessenger);
+    : _host = _HostChannel(binaryMessenger);
 
   final _HostChannel _host;
 
@@ -446,7 +444,7 @@ class WebViewClientHostApi {
 
 class DownloadListenerHostApi {
   DownloadListenerHostApi({BinaryMessenger? binaryMessenger})
-      : _host = _HostChannel(binaryMessenger);
+    : _host = _HostChannel(binaryMessenger);
 
   final _HostChannel _host;
 
@@ -459,7 +457,7 @@ class DownloadListenerHostApi {
 
 class WebChromeClientHostApi {
   WebChromeClientHostApi({BinaryMessenger? binaryMessenger})
-      : _host = _HostChannel(binaryMessenger);
+    : _host = _HostChannel(binaryMessenger);
 
   final _HostChannel _host;
 
@@ -472,40 +470,35 @@ class WebChromeClientHostApi {
   Future<void> setSynchronousReturnValueForOnShowFileChooser(
     int instanceId,
     bool value,
-  ) =>
-      _setReturn(
-        'setSynchronousReturnValueForOnShowFileChooser',
-        instanceId,
-        value,
-      );
+  ) => _setReturn(
+    'setSynchronousReturnValueForOnShowFileChooser',
+    instanceId,
+    value,
+  );
 
   Future<void> setSynchronousReturnValueForOnConsoleMessage(
     int instanceId,
     bool value,
-  ) =>
-      _setReturn(
-        'setSynchronousReturnValueForOnConsoleMessage',
-        instanceId,
-        value,
-      );
+  ) => _setReturn(
+    'setSynchronousReturnValueForOnConsoleMessage',
+    instanceId,
+    value,
+  );
 
   Future<void> setSynchronousReturnValueForOnJsAlert(
     int instanceId,
     bool value,
-  ) =>
-      _setReturn('setSynchronousReturnValueForOnJsAlert', instanceId, value);
+  ) => _setReturn('setSynchronousReturnValueForOnJsAlert', instanceId, value);
 
   Future<void> setSynchronousReturnValueForOnJsConfirm(
     int instanceId,
     bool value,
-  ) =>
-      _setReturn('setSynchronousReturnValueForOnJsConfirm', instanceId, value);
+  ) => _setReturn('setSynchronousReturnValueForOnJsConfirm', instanceId, value);
 
   Future<void> setSynchronousReturnValueForOnJsPrompt(
     int instanceId,
     bool value,
-  ) =>
-      _setReturn('setSynchronousReturnValueForOnJsPrompt', instanceId, value);
+  ) => _setReturn('setSynchronousReturnValueForOnJsPrompt', instanceId, value);
 
   Future<void> _setReturn(String method, int instanceId, bool value) {
     return _host.invoke<void>('WebChromeClient.$method', <String, Object?>{
@@ -517,7 +510,7 @@ class WebChromeClientHostApi {
 
 class FlutterAssetManagerHostApi {
   FlutterAssetManagerHostApi({BinaryMessenger? binaryMessenger})
-      : _host = _HostChannel(binaryMessenger);
+    : _host = _HostChannel(binaryMessenger);
 
   final _HostChannel _host;
 
@@ -540,7 +533,7 @@ class FlutterAssetManagerHostApi {
 
 class WebStorageHostApi {
   WebStorageHostApi({BinaryMessenger? binaryMessenger})
-      : _host = _HostChannel(binaryMessenger);
+    : _host = _HostChannel(binaryMessenger);
 
   final _HostChannel _host;
 
@@ -559,7 +552,7 @@ class WebStorageHostApi {
 
 class PermissionRequestHostApi {
   PermissionRequestHostApi({BinaryMessenger? binaryMessenger})
-      : _host = _HostChannel(binaryMessenger);
+    : _host = _HostChannel(binaryMessenger);
 
   final _HostChannel _host;
 
@@ -579,7 +572,7 @@ class PermissionRequestHostApi {
 
 class CustomViewCallbackHostApi {
   CustomViewCallbackHostApi({BinaryMessenger? binaryMessenger})
-      : _host = _HostChannel(binaryMessenger);
+    : _host = _HostChannel(binaryMessenger);
 
   final _HostChannel _host;
 
@@ -593,7 +586,7 @@ class CustomViewCallbackHostApi {
 
 class GeolocationPermissionsCallbackHostApi {
   GeolocationPermissionsCallbackHostApi({BinaryMessenger? binaryMessenger})
-      : _host = _HostChannel(binaryMessenger);
+    : _host = _HostChannel(binaryMessenger);
 
   final _HostChannel _host;
 
@@ -612,7 +605,7 @@ class GeolocationPermissionsCallbackHostApi {
 
 class HttpAuthHandlerHostApi {
   HttpAuthHandlerHostApi({BinaryMessenger? binaryMessenger})
-      : _host = _HostChannel(binaryMessenger);
+    : _host = _HostChannel(binaryMessenger);
 
   final _HostChannel _host;
 
@@ -635,6 +628,25 @@ class HttpAuthHandlerHostApi {
       'instanceId': instanceId,
       'username': username,
       'password': password,
+    });
+  }
+}
+
+class SslAuthHandlerHostApi {
+  SslAuthHandlerHostApi({BinaryMessenger? binaryMessenger})
+    : _host = _HostChannel(binaryMessenger);
+
+  final _HostChannel _host;
+
+  Future<void> cancel(int instanceId) {
+    return _host.invoke<void>('SslAuthHandler.cancel', <String, Object?>{
+      'instanceId': instanceId,
+    });
+  }
+
+  Future<void> proceed(int instanceId) {
+    return _host.invoke<void>('SslAuthHandler.proceed', <String, Object?>{
+      'instanceId': instanceId,
     });
   }
 }
