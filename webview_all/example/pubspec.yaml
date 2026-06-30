@@ -13,6 +13,7 @@ dependencies:
   webview_all:
     path: ../
   abutil: ^1.2.2
+  cupertino_icons: ^1.0.8
 
 dependency_overrides:
   webview_all_linux:
