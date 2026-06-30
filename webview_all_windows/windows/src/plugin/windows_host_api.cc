@@ -194,6 +194,20 @@ WindowsHostApi::LoadUrl(int64_t texture_id, const std::string &url) {
   return std::nullopt;
 }
 
+std::optional<webview_all_windows::FlutterError> WindowsHostApi::LoadRequest(
+    int64_t texture_id,
+    const webview_all_windows::WindowsLoadRequestData &request) {
+  auto bridge = FindBridge(texture_id);
+  if (!bridge) {
+    return InvalidIdError();
+  }
+  if (!bridge->LoadRequest(request.url(), request.method(), request.headers(),
+                           request.body())) {
+    return MethodFailedError("Loading the request failed.");
+  }
+  return std::nullopt;
+}
+
 std::optional<webview_all_windows::FlutterError>
 WindowsHostApi::LoadStringContent(int64_t texture_id,
                                   const std::string &content) {
@@ -318,7 +332,7 @@ WindowsHostApi::PostWebMessage(int64_t texture_id, const std::string &message) {
 
 std::optional<webview_all_windows::FlutterError>
 WindowsHostApi::SetUserAgent(int64_t texture_id,
-                             const std::string &user_agent) {
+                             const std::string *user_agent) {
   auto bridge = FindBridge(texture_id);
   if (!bridge) {
     return InvalidIdError();
@@ -326,6 +340,28 @@ WindowsHostApi::SetUserAgent(int64_t texture_id,
   if (!bridge->SetUserAgent(user_agent)) {
     return webview_all_windows::FlutterError(kErrorNotSupported,
                                              "Setting the user agent failed.");
+  }
+  return std::nullopt;
+}
+
+webview_all_windows::ErrorOr<std::optional<std::string>>
+WindowsHostApi::GetUserAgent(int64_t texture_id) {
+  auto bridge = FindBridge(texture_id);
+  if (!bridge) {
+    return webview_all_windows::FlutterError(kErrorCodeInvalidId);
+  }
+  return bridge->GetUserAgent();
+}
+
+std::optional<webview_all_windows::FlutterError>
+WindowsHostApi::SetJavaScriptEnabled(int64_t texture_id, bool enabled) {
+  auto bridge = FindBridge(texture_id);
+  if (!bridge) {
+    return InvalidIdError();
+  }
+  if (!bridge->SetJavaScriptEnabled(enabled)) {
+    return webview_all_windows::FlutterError(kErrorNotSupported,
+                                             "Setting JavaScript mode failed.");
   }
   return std::nullopt;
 }
@@ -477,6 +513,23 @@ WindowsHostApi::ClearCache(int64_t texture_id) {
   return std::nullopt;
 }
 
+void WindowsHostApi::ClearLocalStorage(
+    int64_t texture_id,
+    std::function<void(std::optional<webview_all_windows::FlutterError> reply)>
+        result) {
+  auto bridge = FindBridge(texture_id);
+  if (!bridge) {
+    return result(InvalidIdError());
+  }
+
+  bridge->ClearLocalStorage([result = std::move(result)](bool success) mutable {
+    if (success) {
+      return result(std::nullopt);
+    }
+    result(webview_all_windows::FlutterError(kErrorMethodFailed));
+  });
+}
+
 std::optional<webview_all_windows::FlutterError>
 WindowsHostApi::SetCacheDisabled(int64_t texture_id, bool disabled) {
   auto bridge = FindBridge(texture_id);
@@ -515,6 +568,19 @@ WindowsHostApi::SetBackgroundColor(int64_t texture_id, int64_t color) {
 }
 
 std::optional<webview_all_windows::FlutterError>
+WindowsHostApi::SetZoomControlEnabled(int64_t texture_id, bool enabled) {
+  auto bridge = FindBridge(texture_id);
+  if (!bridge) {
+    return InvalidIdError();
+  }
+  if (!bridge->SetZoomControlEnabled(enabled)) {
+    return webview_all_windows::FlutterError(
+        kErrorNotSupported, "Setting the zoom control mode failed.");
+  }
+  return std::nullopt;
+}
+
+std::optional<webview_all_windows::FlutterError>
 WindowsHostApi::SetZoomFactor(int64_t texture_id, double zoom_factor) {
   auto bridge = FindBridge(texture_id);
   if (!bridge) {
@@ -534,6 +600,18 @@ WindowsHostApi::SetPopupWindowPolicy(int64_t texture_id, int64_t policy) {
     return InvalidIdError();
   }
   bridge->SetPopupWindowPolicy(policy);
+  return std::nullopt;
+}
+
+std::optional<webview_all_windows::FlutterError>
+WindowsHostApi::SetJavaScriptDialogCallbacksEnabled(int64_t texture_id,
+                                                    bool alert, bool confirm,
+                                                    bool prompt) {
+  auto bridge = FindBridge(texture_id);
+  if (!bridge) {
+    return InvalidIdError();
+  }
+  bridge->SetJavaScriptDialogCallbacksEnabled(alert, confirm, prompt);
   return std::nullopt;
 }
 

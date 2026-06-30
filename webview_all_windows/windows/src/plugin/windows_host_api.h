@@ -44,6 +44,9 @@ private:
   std::optional<FlutterError> LoadUrl(int64_t texture_id,
                                       const std::string &url) override;
   std::optional<FlutterError>
+  LoadRequest(int64_t texture_id,
+              const WindowsLoadRequestData &request) override;
+  std::optional<FlutterError>
   LoadStringContent(int64_t texture_id, const std::string &content) override;
   std::optional<FlutterError> Reload(int64_t texture_id) override;
   std::optional<FlutterError> Stop(int64_t texture_id) override;
@@ -62,7 +65,10 @@ private:
   std::optional<FlutterError>
   PostWebMessage(int64_t texture_id, const std::string &message) override;
   std::optional<FlutterError>
-  SetUserAgent(int64_t texture_id, const std::string &user_agent) override;
+  SetUserAgent(int64_t texture_id, const std::string *user_agent) override;
+  ErrorOr<std::optional<std::string>> GetUserAgent(int64_t texture_id) override;
+  std::optional<FlutterError> SetJavaScriptEnabled(int64_t texture_id,
+                                                   bool enabled) override;
   void ClearCookies(int64_t texture_id,
                     std::function<void(ErrorOr<bool> reply)> result) override;
   std::optional<FlutterError>
@@ -79,15 +85,23 @@ private:
       int64_t texture_id, const std::string &name, const std::string &domain,
       const std::string &path) override;
   std::optional<FlutterError> ClearCache(int64_t texture_id) override;
+  void ClearLocalStorage(
+      int64_t texture_id,
+      std::function<void(std::optional<FlutterError> reply)> result) override;
   std::optional<FlutterError> SetCacheDisabled(int64_t texture_id,
                                                bool disabled) override;
   std::optional<FlutterError> OpenDevTools(int64_t texture_id) override;
   std::optional<FlutterError> SetBackgroundColor(int64_t texture_id,
                                                  int64_t color) override;
+  std::optional<FlutterError> SetZoomControlEnabled(int64_t texture_id,
+                                                    bool enabled) override;
   std::optional<FlutterError> SetZoomFactor(int64_t texture_id,
                                             double zoom_factor) override;
   std::optional<FlutterError> SetPopupWindowPolicy(int64_t texture_id,
                                                    int64_t policy) override;
+  std::optional<FlutterError>
+  SetJavaScriptDialogCallbacksEnabled(int64_t texture_id, bool alert,
+                                      bool confirm, bool prompt) override;
   std::optional<FlutterError> Suspend(int64_t texture_id) override;
   std::optional<FlutterError> Resume(int64_t texture_id) override;
   std::optional<FlutterError> SetVirtualHostNameMapping(
