@@ -34,6 +34,16 @@ WebResourceError _toWebResourceError(WebResourceErrorData data) {
   );
 }
 
+/// Converts [WebResourceResponseData] to [WebResourceResponse].
+WebResourceResponse _toWebResourceResponse(WebResourceResponseData data) {
+  return WebResourceResponse(
+    statusCode: data.statusCode,
+    responseHeaders: data.responseHeaders,
+    reasonPhrase: data.reasonPhrase,
+    mimeType: data.mimeType,
+  );
+}
+
 /// Handles initialization of Flutter APIs for Ohos WebView.
 class OhosWebViewFlutterApis {
   /// Creates a [OhosWebViewFlutterApis].
@@ -45,12 +55,13 @@ class OhosWebViewFlutterApis {
     JavaScriptChannelFlutterApiImpl? javaScriptChannelFlutterApi,
     FileChooserParamsFlutterApiImpl? fileChooserParamsFlutterApi,
     GeolocationPermissionsCallbackFlutterApiImpl?
-        geolocationPermissionsCallbackFlutterApi,
+    geolocationPermissionsCallbackFlutterApi,
     WebViewFlutterApiImpl? webViewFlutterApi,
     PermissionRequestFlutterApiImpl? permissionRequestFlutterApi,
     CustomViewCallbackFlutterApiImpl? customViewCallbackFlutterApi,
     ViewFlutterApiImpl? viewFlutterApi,
     HttpAuthHandlerFlutterApiImpl? httpAuthHandlerFlutterApi,
+    SslAuthHandlerFlutterApiImpl? sslAuthHandlerFlutterApi,
   }) {
     this.ohosObjectFlutterApi =
         ohosObjectFlutterApi ?? OhosObjectFlutterApiImpl();
@@ -66,7 +77,7 @@ class OhosWebViewFlutterApis {
         fileChooserParamsFlutterApi ?? FileChooserParamsFlutterApiImpl();
     this.geolocationPermissionsCallbackFlutterApi =
         geolocationPermissionsCallbackFlutterApi ??
-            GeolocationPermissionsCallbackFlutterApiImpl();
+        GeolocationPermissionsCallbackFlutterApiImpl();
     this.webViewFlutterApi = webViewFlutterApi ?? WebViewFlutterApiImpl();
     this.permissionRequestFlutterApi =
         permissionRequestFlutterApi ?? PermissionRequestFlutterApiImpl();
@@ -75,6 +86,8 @@ class OhosWebViewFlutterApis {
     this.viewFlutterApi = viewFlutterApi ?? ViewFlutterApiImpl();
     this.httpAuthHandlerFlutterApi =
         httpAuthHandlerFlutterApi ?? HttpAuthHandlerFlutterApiImpl();
+    this.sslAuthHandlerFlutterApi =
+        sslAuthHandlerFlutterApi ?? SslAuthHandlerFlutterApiImpl();
   }
 
   static bool _haveBeenSetUp = false;
@@ -104,7 +117,7 @@ class OhosWebViewFlutterApis {
 
   /// Flutter Api for [GeolocationPermissionsCallback].
   late final GeolocationPermissionsCallbackFlutterApiImpl
-      geolocationPermissionsCallbackFlutterApi;
+  geolocationPermissionsCallbackFlutterApi;
 
   /// Flutter Api for [WebView].
   late final WebViewFlutterApiImpl webViewFlutterApi;
@@ -121,6 +134,9 @@ class OhosWebViewFlutterApis {
   /// Flutter Api for [HttpAuthHandler].
   late final HttpAuthHandlerFlutterApiImpl httpAuthHandlerFlutterApi;
 
+  /// Flutter Api for [SslAuthHandler].
+  late final SslAuthHandlerFlutterApiImpl sslAuthHandlerFlutterApi;
+
   /// Ensures all the Flutter APIs have been setup to receive calls from native code.
   void ensureSetUp() {
     if (!_haveBeenSetUp) {
@@ -136,8 +152,8 @@ class OhosObjectHostApiImpl extends OhosObjectHostApi {
   OhosObjectHostApiImpl({
     this.binaryMessenger,
     InstanceManager? instanceManager,
-  })  : instanceManager = instanceManager ?? OhosObject.globalInstanceManager,
-        super(binaryMessenger: binaryMessenger);
+  }) : instanceManager = instanceManager ?? OhosObject.globalInstanceManager,
+       super(binaryMessenger: binaryMessenger);
 
   /// Receives binary data across the Flutter platform barrier.
   ///
@@ -153,7 +169,7 @@ class OhosObjectHostApiImpl extends OhosObjectHostApi {
 class OhosObjectFlutterApiImpl {
   /// Constructs a [OhosObjectFlutterApiImpl].
   OhosObjectFlutterApiImpl({InstanceManager? instanceManager})
-      : instanceManager = instanceManager ?? OhosObject.globalInstanceManager;
+    : instanceManager = instanceManager ?? OhosObject.globalInstanceManager;
 
   /// Maintains instances stored to communicate with native language objects.
   final InstanceManager instanceManager;
@@ -167,7 +183,7 @@ class OhosObjectFlutterApiImpl {
 class WebViewHostApiImpl extends WebViewHostApi {
   /// Constructs a [WebViewHostApiImpl].
   WebViewHostApiImpl({super.binaryMessenger, InstanceManager? instanceManager})
-      : instanceManager = instanceManager ?? OhosObject.globalInstanceManager;
+    : instanceManager = instanceManager ?? OhosObject.globalInstanceManager;
 
   /// Maintains instances stored to communicate with java objects.
   final InstanceManager instanceManager;
@@ -398,8 +414,9 @@ class WebViewFlutterApiImpl {
     int oldLeft,
     int oldTop,
   ) {
-    final WebView? webViewInstance = instanceManager
-        .getInstanceWithWeakReference(webViewInstanceId) as WebView?;
+    final WebView? webViewInstance =
+        instanceManager.getInstanceWithWeakReference(webViewInstanceId)
+            as WebView?;
     assert(
       webViewInstance != null,
       'InstanceManager does not contain a WebView with instanceId: $webViewInstanceId',
@@ -592,13 +609,14 @@ class JavaScriptChannelHostApiImpl extends JavaScriptChannelHostApi {
 class JavaScriptChannelFlutterApiImpl {
   /// Constructs a [JavaScriptChannelFlutterApiImpl].
   JavaScriptChannelFlutterApiImpl({InstanceManager? instanceManager})
-      : instanceManager = instanceManager ?? OhosObject.globalInstanceManager;
+    : instanceManager = instanceManager ?? OhosObject.globalInstanceManager;
 
   /// Maintains instances stored to communicate with java objects.
   final InstanceManager instanceManager;
   void postMessage(int instanceId, String message) {
-    final JavaScriptChannel? instance = instanceManager
-        .getInstanceWithWeakReference(instanceId) as JavaScriptChannel?;
+    final JavaScriptChannel? instance =
+        instanceManager.getInstanceWithWeakReference(instanceId)
+            as JavaScriptChannel?;
     assert(
       instance != null,
       'InstanceManager does not contain a JavaScriptChannel with instanceId: $instanceId',
@@ -642,15 +660,17 @@ class WebViewClientHostApiImpl extends WebViewClientHostApi {
 class WebViewClientFlutterApiImpl {
   /// Constructs a [WebViewClientFlutterApiImpl].
   WebViewClientFlutterApiImpl({InstanceManager? instanceManager})
-      : instanceManager = instanceManager ?? OhosObject.globalInstanceManager;
+    : instanceManager = instanceManager ?? OhosObject.globalInstanceManager;
 
   /// Maintains instances stored to communicate with java objects.
   final InstanceManager instanceManager;
   void onPageFinished(int instanceId, int webViewInstanceId, String url) {
-    final WebViewClient? instance = instanceManager
-        .getInstanceWithWeakReference(instanceId) as WebViewClient?;
-    final WebView? webViewInstance = instanceManager
-        .getInstanceWithWeakReference(webViewInstanceId) as WebView?;
+    final WebViewClient? instance =
+        instanceManager.getInstanceWithWeakReference(instanceId)
+            as WebViewClient?;
+    final WebView? webViewInstance =
+        instanceManager.getInstanceWithWeakReference(webViewInstanceId)
+            as WebView?;
     assert(
       instance != null,
       'InstanceManager does not contain a WebViewClient with instanceId: $instanceId',
@@ -665,10 +685,12 @@ class WebViewClientFlutterApiImpl {
   }
 
   void onPageStarted(int instanceId, int webViewInstanceId, String url) {
-    final WebViewClient? instance = instanceManager
-        .getInstanceWithWeakReference(instanceId) as WebViewClient?;
-    final WebView? webViewInstance = instanceManager
-        .getInstanceWithWeakReference(webViewInstanceId) as WebView?;
+    final WebViewClient? instance =
+        instanceManager.getInstanceWithWeakReference(instanceId)
+            as WebViewClient?;
+    final WebView? webViewInstance =
+        instanceManager.getInstanceWithWeakReference(webViewInstanceId)
+            as WebView?;
     assert(
       instance != null,
       'InstanceManager does not contain a WebViewClient with instanceId: $instanceId',
@@ -689,10 +711,12 @@ class WebViewClientFlutterApiImpl {
     String description,
     String failingUrl,
   ) {
-    final WebViewClient? instance = instanceManager
-        .getInstanceWithWeakReference(instanceId) as WebViewClient?;
-    final WebView? webViewInstance = instanceManager
-        .getInstanceWithWeakReference(webViewInstanceId) as WebView?;
+    final WebViewClient? instance =
+        instanceManager.getInstanceWithWeakReference(instanceId)
+            as WebViewClient?;
+    final WebView? webViewInstance =
+        instanceManager.getInstanceWithWeakReference(webViewInstanceId)
+            as WebView?;
     assert(
       instance != null,
       'InstanceManager does not contain a WebViewClient with instanceId: $instanceId',
@@ -719,10 +743,12 @@ class WebViewClientFlutterApiImpl {
     WebResourceRequestData request,
     WebResourceErrorData error,
   ) {
-    final WebViewClient? instance = instanceManager
-        .getInstanceWithWeakReference(instanceId) as WebViewClient?;
-    final WebView? webViewInstance = instanceManager
-        .getInstanceWithWeakReference(webViewInstanceId) as WebView?;
+    final WebViewClient? instance =
+        instanceManager.getInstanceWithWeakReference(instanceId)
+            as WebViewClient?;
+    final WebView? webViewInstance =
+        instanceManager.getInstanceWithWeakReference(webViewInstanceId)
+            as WebView?;
     assert(
       instance != null,
       'InstanceManager does not contain a WebViewClient with instanceId: $instanceId',
@@ -740,15 +766,46 @@ class WebViewClientFlutterApiImpl {
     }
   }
 
+  void onReceivedHttpError(
+    int instanceId,
+    int webViewInstanceId,
+    WebResourceRequestData request,
+    WebResourceResponseData response,
+  ) {
+    final WebViewClient? instance =
+        instanceManager.getInstanceWithWeakReference(instanceId)
+            as WebViewClient?;
+    final WebView? webViewInstance =
+        instanceManager.getInstanceWithWeakReference(webViewInstanceId)
+            as WebView?;
+    assert(
+      instance != null,
+      'InstanceManager does not contain a WebViewClient with instanceId: $instanceId',
+    );
+    assert(
+      webViewInstance != null,
+      'InstanceManager does not contain a WebView with instanceId: $webViewInstanceId',
+    );
+    if (instance!.onReceivedHttpError != null) {
+      instance.onReceivedHttpError!(
+        webViewInstance!,
+        _toWebResourceRequest(request),
+        _toWebResourceResponse(response),
+      );
+    }
+  }
+
   void requestLoading(
     int instanceId,
     int webViewInstanceId,
     WebResourceRequestData request,
   ) {
-    final WebViewClient? instance = instanceManager
-        .getInstanceWithWeakReference(instanceId) as WebViewClient?;
-    final WebView? webViewInstance = instanceManager
-        .getInstanceWithWeakReference(webViewInstanceId) as WebView?;
+    final WebViewClient? instance =
+        instanceManager.getInstanceWithWeakReference(instanceId)
+            as WebViewClient?;
+    final WebView? webViewInstance =
+        instanceManager.getInstanceWithWeakReference(webViewInstanceId)
+            as WebView?;
     assert(
       instance != null,
       'InstanceManager does not contain a WebViewClient with instanceId: $instanceId',
@@ -766,10 +823,12 @@ class WebViewClientFlutterApiImpl {
   }
 
   void urlLoading(int instanceId, int webViewInstanceId, String url) {
-    final WebViewClient? instance = instanceManager
-        .getInstanceWithWeakReference(instanceId) as WebViewClient?;
-    final WebView? webViewInstance = instanceManager
-        .getInstanceWithWeakReference(webViewInstanceId) as WebView?;
+    final WebViewClient? instance =
+        instanceManager.getInstanceWithWeakReference(instanceId)
+            as WebViewClient?;
+    final WebView? webViewInstance =
+        instanceManager.getInstanceWithWeakReference(webViewInstanceId)
+            as WebView?;
     assert(
       instance != null,
       'InstanceManager does not contain a WebViewClient with instanceId: $instanceId',
@@ -789,10 +848,12 @@ class WebViewClientFlutterApiImpl {
     String url,
     bool isReload,
   ) {
-    final WebViewClient? instance = instanceManager
-        .getInstanceWithWeakReference(instanceId) as WebViewClient?;
-    final WebView? webViewInstance = instanceManager
-        .getInstanceWithWeakReference(webViewInstanceId) as WebView?;
+    final WebViewClient? instance =
+        instanceManager.getInstanceWithWeakReference(instanceId)
+            as WebViewClient?;
+    final WebView? webViewInstance =
+        instanceManager.getInstanceWithWeakReference(webViewInstanceId)
+            as WebView?;
     assert(
       instance != null,
       'InstanceManager does not contain a WebViewClient with instanceId: $instanceId',
@@ -813,10 +874,12 @@ class WebViewClientFlutterApiImpl {
     String host,
     String realm,
   ) {
-    final WebViewClient? instance = instanceManager
-        .getInstanceWithWeakReference(instanceId) as WebViewClient?;
-    final WebView? webViewInstance = instanceManager
-        .getInstanceWithWeakReference(webViewInstanceId) as WebView?;
+    final WebViewClient? instance =
+        instanceManager.getInstanceWithWeakReference(instanceId)
+            as WebViewClient?;
+    final WebView? webViewInstance =
+        instanceManager.getInstanceWithWeakReference(webViewInstanceId)
+            as WebView?;
     final HttpAuthHandler? httpAuthHandlerInstance =
         instanceManager.getInstanceWithWeakReference(httpAuthHandlerInstanceId)
             as HttpAuthHandler?;
@@ -838,6 +901,46 @@ class WebViewClientFlutterApiImpl {
         httpAuthHandlerInstance!,
         host,
         realm,
+      );
+    }
+  }
+
+  void onReceivedSslAuthError(
+    int instanceId,
+    int webViewInstanceId,
+    int sslAuthHandlerInstanceId,
+    String url,
+    int errorCode,
+    String description,
+  ) {
+    final WebViewClient? instance =
+        instanceManager.getInstanceWithWeakReference(instanceId)
+            as WebViewClient?;
+    final WebView? webViewInstance =
+        instanceManager.getInstanceWithWeakReference(webViewInstanceId)
+            as WebView?;
+    final SslAuthHandler? sslAuthHandlerInstance =
+        instanceManager.getInstanceWithWeakReference(sslAuthHandlerInstanceId)
+            as SslAuthHandler?;
+    assert(
+      instance != null,
+      'InstanceManager does not contain a WebViewClient with instanceId: $instanceId',
+    );
+    assert(
+      webViewInstance != null,
+      'InstanceManager does not contain a WebView with instanceId: $webViewInstanceId',
+    );
+    assert(
+      sslAuthHandlerInstance != null,
+      'InstanceManager does not contain a SslAuthHandler with instanceId: $sslAuthHandlerInstanceId',
+    );
+    if (instance!.onReceivedSslAuthError != null) {
+      return instance.onReceivedSslAuthError!(
+        webViewInstance!,
+        sslAuthHandlerInstance!,
+        url,
+        errorCode,
+        description,
       );
     }
   }
@@ -867,7 +970,7 @@ class DownloadListenerHostApiImpl extends DownloadListenerHostApi {
 class DownloadListenerFlutterApiImpl {
   /// Constructs a [DownloadListenerFlutterApiImpl].
   DownloadListenerFlutterApiImpl({InstanceManager? instanceManager})
-      : instanceManager = instanceManager ?? OhosObject.globalInstanceManager;
+    : instanceManager = instanceManager ?? OhosObject.globalInstanceManager;
 
   /// Maintains instances stored to communicate with java objects.
   final InstanceManager instanceManager;
@@ -879,8 +982,9 @@ class DownloadListenerFlutterApiImpl {
     String mimetype,
     int contentLength,
   ) {
-    final DownloadListener? instance = instanceManager
-        .getInstanceWithWeakReference(instanceId) as DownloadListener?;
+    final DownloadListener? instance =
+        instanceManager.getInstanceWithWeakReference(instanceId)
+            as DownloadListener?;
     assert(
       instance != null,
       'InstanceManager does not contain a DownloadListener with instanceId: $instanceId',
@@ -974,15 +1078,17 @@ class WebChromeClientHostApiImpl extends WebChromeClientHostApi {
 class WebChromeClientFlutterApiImpl {
   /// Constructs a [DownloadListenerFlutterApiImpl].
   WebChromeClientFlutterApiImpl({InstanceManager? instanceManager})
-      : instanceManager = instanceManager ?? OhosObject.globalInstanceManager;
+    : instanceManager = instanceManager ?? OhosObject.globalInstanceManager;
 
   /// Maintains instances stored to communicate with java objects.
   final InstanceManager instanceManager;
   void onProgressChanged(int instanceId, int webViewInstanceId, int progress) {
-    final WebChromeClient? instance = instanceManager
-        .getInstanceWithWeakReference(instanceId) as WebChromeClient?;
-    final WebView? webViewInstance = instanceManager
-        .getInstanceWithWeakReference(webViewInstanceId) as WebView?;
+    final WebChromeClient? instance =
+        instanceManager.getInstanceWithWeakReference(instanceId)
+            as WebChromeClient?;
+    final WebView? webViewInstance =
+        instanceManager.getInstanceWithWeakReference(webViewInstanceId)
+            as WebView?;
     assert(
       instance != null,
       'InstanceManager does not contain a WebChromeClient with instanceId: $instanceId',
@@ -1001,8 +1107,8 @@ class WebChromeClientFlutterApiImpl {
     int webViewInstanceId,
     int paramsInstanceId,
   ) {
-    final WebChromeClient instance =
-        instanceManager.getInstanceWithWeakReference(instanceId)!;
+    final WebChromeClient instance = instanceManager
+        .getInstanceWithWeakReference(instanceId)!;
     if (instance.onShowFileChooser != null) {
       return instance.onShowFileChooser!(
         instanceManager.getInstanceWithWeakReference(webViewInstanceId)!
@@ -1020,8 +1126,8 @@ class WebChromeClientFlutterApiImpl {
     int paramsInstanceId,
     String origin,
   ) {
-    final WebChromeClient instance =
-        instanceManager.getInstanceWithWeakReference(instanceId)!;
+    final WebChromeClient instance = instanceManager
+        .getInstanceWithWeakReference(instanceId)!;
     final GeolocationPermissionsCallback callback =
         instanceManager.getInstanceWithWeakReference(paramsInstanceId)!
             as GeolocationPermissionsCallback;
@@ -1033,8 +1139,8 @@ class WebChromeClientFlutterApiImpl {
   }
 
   void onGeolocationPermissionsHidePrompt(int identifier) {
-    final WebChromeClient instance =
-        instanceManager.getInstanceWithWeakReference(identifier)!;
+    final WebChromeClient instance = instanceManager
+        .getInstanceWithWeakReference(identifier)!;
     final GeolocationPermissionsHidePrompt? onHidePrompt =
         instance.onGeolocationPermissionsHidePrompt;
     if (onHidePrompt != null) {
@@ -1043,8 +1149,8 @@ class WebChromeClientFlutterApiImpl {
   }
 
   void onPermissionRequest(int instanceId, int requestInstanceId) {
-    final WebChromeClient instance =
-        instanceManager.getInstanceWithWeakReference(instanceId)!;
+    final WebChromeClient instance = instanceManager
+        .getInstanceWithWeakReference(instanceId)!;
     if (instance.onPermissionRequest != null) {
       instance.onPermissionRequest!(
         instance,
@@ -1054,8 +1160,8 @@ class WebChromeClientFlutterApiImpl {
       // The method requires calling grant or deny if the native method is
       // overridden, so this calls deny by default if `onPermissionRequest` is
       // null.
-      final PermissionRequest request =
-          instanceManager.getInstanceWithWeakReference(requestInstanceId)!;
+      final PermissionRequest request = instanceManager
+          .getInstanceWithWeakReference(requestInstanceId)!;
       request.deny();
     }
   }
@@ -1065,8 +1171,8 @@ class WebChromeClientFlutterApiImpl {
     int viewIdentifier,
     int callbackIdentifier,
   ) {
-    final WebChromeClient instance =
-        instanceManager.getInstanceWithWeakReference(instanceId)!;
+    final WebChromeClient instance = instanceManager
+        .getInstanceWithWeakReference(instanceId)!;
     if (instance.onShowCustomView != null) {
       return instance.onShowCustomView!(
         instance,
@@ -1077,29 +1183,29 @@ class WebChromeClientFlutterApiImpl {
   }
 
   void onHideCustomView(int instanceId) {
-    final WebChromeClient instance =
-        instanceManager.getInstanceWithWeakReference(instanceId)!;
+    final WebChromeClient instance = instanceManager
+        .getInstanceWithWeakReference(instanceId)!;
     if (instance.onHideCustomView != null) {
       return instance.onHideCustomView!(instance);
     }
   }
 
   void onConsoleMessage(int instanceId, ConsoleMessage message) {
-    final WebChromeClient instance =
-        instanceManager.getInstanceWithWeakReference(instanceId)!;
+    final WebChromeClient instance = instanceManager
+        .getInstanceWithWeakReference(instanceId)!;
     instance.onConsoleMessage?.call(instance, message);
   }
 
   Future<void> onJsAlert(int instanceId, String url, String message) {
-    final WebChromeClient instance =
-        instanceManager.getInstanceWithWeakReference(instanceId)!;
+    final WebChromeClient instance = instanceManager
+        .getInstanceWithWeakReference(instanceId)!;
 
     return instance.onJsAlert!(url, message);
   }
 
   Future<bool> onJsConfirm(int instanceId, String url, String message) {
-    final WebChromeClient instance =
-        instanceManager.getInstanceWithWeakReference(instanceId)!;
+    final WebChromeClient instance = instanceManager
+        .getInstanceWithWeakReference(instanceId)!;
 
     return instance.onJsConfirm!(url, message);
   }
@@ -1110,8 +1216,8 @@ class WebChromeClientFlutterApiImpl {
     String message,
     String defaultValue,
   ) {
-    final WebChromeClient instance =
-        instanceManager.getInstanceWithWeakReference(instanceId)!;
+    final WebChromeClient instance = instanceManager
+        .getInstanceWithWeakReference(instanceId)!;
 
     return instance.onJsPrompt!(url, message, defaultValue);
   }
@@ -1186,8 +1292,8 @@ class GeolocationPermissionsCallbackHostApiImpl
   GeolocationPermissionsCallbackHostApiImpl({
     this.binaryMessenger,
     InstanceManager? instanceManager,
-  })  : instanceManager = instanceManager ?? OhosObject.globalInstanceManager,
-        super(binaryMessenger: binaryMessenger);
+  }) : instanceManager = instanceManager ?? OhosObject.globalInstanceManager,
+       super(binaryMessenger: binaryMessenger);
 
   /// Sends binary data across the Flutter platform barrier.
   ///
@@ -1251,8 +1357,8 @@ class PermissionRequestHostApiImpl extends PermissionRequestHostApi {
   PermissionRequestHostApiImpl({
     this.binaryMessenger,
     InstanceManager? instanceManager,
-  })  : instanceManager = instanceManager ?? OhosObject.globalInstanceManager,
-        super(binaryMessenger: binaryMessenger);
+  }) : instanceManager = instanceManager ?? OhosObject.globalInstanceManager,
+       super(binaryMessenger: binaryMessenger);
 
   /// Sends binary data across the Flutter platform barrier.
   ///
@@ -1315,8 +1421,8 @@ class CustomViewCallbackHostApiImpl extends CustomViewCallbackHostApi {
   CustomViewCallbackHostApiImpl({
     this.binaryMessenger,
     InstanceManager? instanceManager,
-  })  : instanceManager = instanceManager ?? OhosObject.globalInstanceManager,
-        super(binaryMessenger: binaryMessenger);
+  }) : instanceManager = instanceManager ?? OhosObject.globalInstanceManager,
+       super(binaryMessenger: binaryMessenger);
 
   /// Sends binary data across the Flutter platform barrier.
   ///
@@ -1372,7 +1478,7 @@ class CustomViewCallbackFlutterApiImpl {
 class ViewFlutterApiImpl {
   /// Constructs a [ViewFlutterApiImpl].
   ViewFlutterApiImpl({this.binaryMessenger, InstanceManager? instanceManager})
-      : instanceManager = instanceManager ?? OhosObject.globalInstanceManager;
+    : instanceManager = instanceManager ?? OhosObject.globalInstanceManager;
 
   /// Receives binary data across the Flutter platform barrier.
   ///
@@ -1399,8 +1505,8 @@ class CookieManagerHostApiImpl extends CookieManagerHostApi {
   CookieManagerHostApiImpl({
     this.binaryMessenger,
     InstanceManager? instanceManager,
-  })  : instanceManager = instanceManager ?? OhosObject.globalInstanceManager,
-        super(binaryMessenger: binaryMessenger);
+  }) : instanceManager = instanceManager ?? OhosObject.globalInstanceManager,
+       super(binaryMessenger: binaryMessenger);
 
   /// Sends binary data across the Flutter platform barrier.
   ///
@@ -1507,5 +1613,55 @@ class HttpAuthHandlerFlutterApiImpl {
   final InstanceManager instanceManager;
   void create(int instanceId) {
     instanceManager.addHostCreatedInstance(HttpAuthHandler(), instanceId);
+  }
+}
+
+/// Host api implementation for [SslAuthHandler].
+class SslAuthHandlerHostApiImpl extends SslAuthHandlerHostApi {
+  /// Constructs a [SslAuthHandlerHostApiImpl].
+  SslAuthHandlerHostApiImpl({
+    super.binaryMessenger,
+    InstanceManager? instanceManager,
+  }) : _instanceManager = instanceManager ?? OhosObject.globalInstanceManager;
+
+  /// Maintains instances stored to communicate with native language objects.
+  final InstanceManager _instanceManager;
+
+  /// Helper method to convert instance ids to objects.
+  Future<void> cancelFromInstance(SslAuthHandler instance) {
+    return cancel(_instanceManager.getIdentifier(instance)!);
+  }
+
+  /// Helper method to convert instance ids to objects.
+  Future<void> proceedFromInstance(SslAuthHandler instance) {
+    return proceed(_instanceManager.getIdentifier(instance)!);
+  }
+}
+
+/// Flutter API implementation for [SslAuthHandler].
+class SslAuthHandlerFlutterApiImpl {
+  /// Constructs a [SslAuthHandlerFlutterApiImpl].
+  SslAuthHandlerFlutterApiImpl({
+    this.binaryMessenger,
+    InstanceManager? instanceManager,
+  }) : instanceManager = instanceManager ?? OhosObject.globalInstanceManager;
+
+  /// Receives binary data across the Flutter platform barrier.
+  ///
+  /// If it is null, the default BinaryMessenger will be used which routes to
+  /// the host platform.
+  final BinaryMessenger? binaryMessenger;
+
+  /// Maintains instances stored to communicate with native language objects.
+  final InstanceManager instanceManager;
+
+  void create(int instanceId) {
+    instanceManager.addHostCreatedInstance(
+      SslAuthHandler(
+        binaryMessenger: binaryMessenger,
+        instanceManager: instanceManager,
+      ),
+      instanceId,
+    );
   }
 }
