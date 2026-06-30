@@ -28,9 +28,9 @@ class OhosObject with Copyable {
     BinaryMessenger? binaryMessenger,
     InstanceManager? instanceManager,
   }) : _api = OhosObjectHostApiImpl(
-          binaryMessenger: binaryMessenger,
-          instanceManager: instanceManager,
-        );
+         binaryMessenger: binaryMessenger,
+         instanceManager: instanceManager,
+       );
 
   /// Global instance of [InstanceManager].
   static final InstanceManager globalInstanceManager = _initInstanceManager();
@@ -73,15 +73,15 @@ class GeolocationPermissionsCallback extends OhosObject {
   GeolocationPermissionsCallback.detached({
     super.binaryMessenger,
     super.instanceManager,
-  })  : _geolocationPermissionsCallbackApi =
-            GeolocationPermissionsCallbackHostApiImpl(
-          binaryMessenger: binaryMessenger,
-          instanceManager: instanceManager,
-        ),
-        super.detached();
+  }) : _geolocationPermissionsCallbackApi =
+           GeolocationPermissionsCallbackHostApiImpl(
+             binaryMessenger: binaryMessenger,
+             instanceManager: instanceManager,
+           ),
+       super.detached();
 
   final GeolocationPermissionsCallbackHostApiImpl
-      _geolocationPermissionsCallbackApi;
+  _geolocationPermissionsCallbackApi;
 
   /// Sets the Geolocation permission state for the supplied origin.
   ///
@@ -162,7 +162,7 @@ class WebView extends OhosObject {
   /// This is typically as a result of [scrollBy] or [scrollTo]
   /// having been called.
   final void Function(int left, int top, int oldLeft, int oldTop)?
-      onScrollChanged;
+  onScrollChanged;
 
   /// Enables debugging of web contents (HTML / CSS / JavaScript) loaded into any WebViews of this application.
   ///
@@ -454,11 +454,11 @@ class CookieManager extends OhosObject {
   /// library or to create a copy for an [InstanceManager].
   @protected
   CookieManager.detached({super.binaryMessenger, super.instanceManager})
-      : _cookieManagerApi = CookieManagerHostApiImpl(
-          binaryMessenger: binaryMessenger,
-          instanceManager: instanceManager,
-        ),
-        super.detached();
+    : _cookieManagerApi = CookieManagerHostApiImpl(
+        binaryMessenger: binaryMessenger,
+        instanceManager: instanceManager,
+      ),
+      super.detached();
 
   static final CookieManager _instance = CookieManagerHostApiImpl()
       .attachInstanceFromInstances(CookieManager.detached());
@@ -553,7 +553,7 @@ class WebSettings extends OhosObject {
   /// create copies.
   @protected
   WebSettings.detached({super.binaryMessenger, super.instanceManager})
-      : super.detached();
+    : super.detached();
 
   /// Host channel implementation for [WebSettings].
   @visibleForTesting
@@ -758,11 +758,13 @@ class WebViewClient extends OhosObject {
     this.onPageStarted,
     this.onPageFinished,
     this.onReceivedRequestError,
+    this.onReceivedHttpError,
     @Deprecated('Only called on Ohos version < 23.') this.onReceivedError,
     this.requestLoading,
     this.urlLoading,
     this.doUpdateVisitedHistory,
     this.onReceivedHttpAuthRequest,
+    this.onReceivedSslAuthError,
     @visibleForTesting super.binaryMessenger,
     @visibleForTesting super.instanceManager,
   }) : super.detached() {
@@ -779,11 +781,13 @@ class WebViewClient extends OhosObject {
     this.onPageStarted,
     this.onPageFinished,
     this.onReceivedRequestError,
+    this.onReceivedHttpError,
     @Deprecated('Only called on Ohos version < 23.') this.onReceivedError,
     this.requestLoading,
     this.urlLoading,
     this.doUpdateVisitedHistory,
     this.onReceivedHttpAuthRequest,
+    this.onReceivedSslAuthError,
     super.binaryMessenger,
     super.instanceManager,
   }) : super.detached();
@@ -871,7 +875,16 @@ class WebViewClient extends OhosObject {
     WebView webView,
     WebResourceRequest request,
     WebResourceError error,
-  )? onReceivedRequestError;
+  )?
+  onReceivedRequestError;
+
+  /// Report HTTP error responses to the host application.
+  final void Function(
+    WebView webView,
+    WebResourceRequest request,
+    WebResourceResponse response,
+  )?
+  onReceivedHttpError;
 
   /// Report an error to the host application.
   ///
@@ -883,14 +896,15 @@ class WebViewClient extends OhosObject {
     int errorCode,
     String description,
     String failingUrl,
-  )? onReceivedError;
+  )?
+  onReceivedError;
 
   /// When the current [WebView] wants to load a URL.
   ///
   /// The value set by [setSynchronousReturnValueForShouldOverrideUrlLoading]
   /// indicates whether the [WebView] loaded the request.
   final void Function(WebView webView, WebResourceRequest request)?
-      requestLoading;
+  requestLoading;
 
   /// When the current [WebView] wants to load a URL.
   ///
@@ -900,7 +914,7 @@ class WebViewClient extends OhosObject {
 
   /// Notify the host application to update its visited links database.
   final void Function(WebView webView, String url, bool isReload)?
-      doUpdateVisitedHistory;
+  doUpdateVisitedHistory;
 
   /// This callback is only called for requests that require HTTP authentication.
   final void Function(
@@ -908,7 +922,18 @@ class WebViewClient extends OhosObject {
     HttpAuthHandler handler,
     String host,
     String realm,
-  )? onReceivedHttpAuthRequest;
+  )?
+  onReceivedHttpAuthRequest;
+
+  /// This callback is called for recoverable SSL certificate errors.
+  final void Function(
+    WebView webView,
+    SslAuthHandler handler,
+    String url,
+    int errorCode,
+    String description,
+  )?
+  onReceivedSslAuthError;
 
   /// Sets the required synchronous return value for the native method,
   /// `WebViewClient.shouldOverrideUrlLoading(...)`.
@@ -934,12 +959,14 @@ class WebViewClient extends OhosObject {
       onPageStarted: onPageStarted,
       onPageFinished: onPageFinished,
       onReceivedRequestError: onReceivedRequestError,
+      onReceivedHttpError: onReceivedHttpError,
       // ignore: deprecated_member_use_from_same_package
       onReceivedError: onReceivedError,
       requestLoading: requestLoading,
       urlLoading: urlLoading,
       doUpdateVisitedHistory: doUpdateVisitedHistory,
       onReceivedHttpAuthRequest: onReceivedHttpAuthRequest,
+      onReceivedSslAuthError: onReceivedSslAuthError,
       binaryMessenger: _api.binaryMessenger,
       instanceManager: _api.instanceManager,
     );
@@ -982,7 +1009,8 @@ class DownloadListener extends OhosObject {
     String contentDisposition,
     String mimetype,
     int contentLength,
-  ) onDownloadStart;
+  )
+  onDownloadStart;
 
   @override
   DownloadListener copy() {
@@ -995,21 +1023,23 @@ class DownloadListener extends OhosObject {
 }
 
 /// Responsible for request the Geolocation API.
-typedef GeolocationPermissionsShowPrompt = Future<void> Function(
-  String origin,
-  GeolocationPermissionsCallback callback,
-);
+typedef GeolocationPermissionsShowPrompt =
+    Future<void> Function(
+      String origin,
+      GeolocationPermissionsCallback callback,
+    );
 
 /// Responsible for request the Geolocation API is Cancel.
-typedef GeolocationPermissionsHidePrompt = void Function(
-    WebChromeClient instance);
+typedef GeolocationPermissionsHidePrompt =
+    void Function(WebChromeClient instance);
 
 /// Signature for the callback that is responsible for showing a custom view.
-typedef ShowCustomViewCallback = void Function(
-  WebChromeClient instance,
-  View view,
-  CustomViewCallback callback,
-);
+typedef ShowCustomViewCallback =
+    void Function(
+      WebChromeClient instance,
+      View view,
+      CustomViewCallback callback,
+    );
 
 /// Signature for the callback that is responsible for hiding a custom view.
 typedef HideCustomViewCallback = void Function(WebChromeClient instance);
@@ -1076,7 +1106,8 @@ class WebChromeClient extends OhosObject {
   final Future<List<String>> Function(
     WebView webView,
     FileChooserParams params,
-  )? onShowFileChooser;
+  )?
+  onShowFileChooser;
 
   /// Notify the host application that web content is requesting permission to
   /// access the specified resources and the permission currently isn't granted
@@ -1084,7 +1115,7 @@ class WebChromeClient extends OhosObject {
   ///
   /// Only invoked on Ohos versions 21+.
   final void Function(WebChromeClient instance, PermissionRequest request)?
-      onPermissionRequest;
+  onPermissionRequest;
 
   /// Indicates the client should handle geolocation permissions.
   final GeolocationPermissionsShowPrompt? onGeolocationPermissionsShowPrompt;
@@ -1107,7 +1138,7 @@ class WebChromeClient extends OhosObject {
 
   /// Report a JavaScript console message to the host application.
   final void Function(WebChromeClient instance, ConsoleMessage message)?
-      onConsoleMessage;
+  onConsoleMessage;
 
   /// Notify the host application that the web page wants to display a
   /// JavaScript alert() dialog.
@@ -1123,7 +1154,8 @@ class WebChromeClient extends OhosObject {
     String url,
     String message,
     String defaultValue,
-  )? onJsPrompt;
+  )?
+  onJsPrompt;
 
   /// Sets the required synchronous return value for the native method,
   /// `WebChromeClient.onShowFileChooser(...)`.
@@ -1278,11 +1310,11 @@ class PermissionRequest extends OhosObject {
     required this.resources,
     required super.binaryMessenger,
     required super.instanceManager,
-  })  : _permissionRequestApi = PermissionRequestHostApiImpl(
-          binaryMessenger: binaryMessenger,
-          instanceManager: instanceManager,
-        ),
-        super.detached();
+  }) : _permissionRequestApi = PermissionRequestHostApiImpl(
+         binaryMessenger: binaryMessenger,
+         instanceManager: instanceManager,
+       ),
+       super.detached();
 
   /// Resource belongs to audio capture device, like microphone.
   static const String audioCapture = 'TYPE_AUDIO_CAPTURE';
@@ -1413,6 +1445,31 @@ class WebResourceError {
   final String description;
 }
 
+/// Encapsulates information about HTTP error responses.
+///
+/// See [WebViewClient.onReceivedHttpError].
+class WebResourceResponse {
+  /// Constructs a [WebResourceResponse].
+  WebResourceResponse({
+    required this.statusCode,
+    required this.responseHeaders,
+    this.reasonPhrase,
+    this.mimeType,
+  });
+
+  /// The HTTP status code.
+  final int statusCode;
+
+  /// The HTTP response headers.
+  final Map<String, String> responseHeaders;
+
+  /// The HTTP reason phrase, when provided by ArkWeb.
+  final String? reasonPhrase;
+
+  /// The response MIME type, when provided by ArkWeb.
+  final String? mimeType;
+}
+
 /// Manages Flutter assets that are part of Ohos's app bundle.
 class FlutterAssetManager {
   /// Constructs the [FlutterAssetManager].
@@ -1454,7 +1511,7 @@ class WebStorage extends OhosObject {
   /// create copies.
   @protected
   WebStorage.detached({super.binaryMessenger, super.instanceManager})
-      : super.detached();
+    : super.detached();
 
   /// Host channel implementation for [WebStorage].
   @visibleForTesting
@@ -1486,7 +1543,7 @@ class View extends OhosObject {
   /// library or to create a copy for an [InstanceManager].
   @protected
   View.detached({super.binaryMessenger, super.instanceManager})
-      : super.detached();
+    : super.detached();
 
   @override
   View copy() {
@@ -1509,11 +1566,11 @@ class CustomViewCallback extends OhosObject {
   /// library or to create a copy for an [InstanceManager].
   @protected
   CustomViewCallback.detached({super.binaryMessenger, super.instanceManager})
-      : _customViewCallbackApi = CustomViewCallbackHostApiImpl(
-          binaryMessenger: binaryMessenger,
-          instanceManager: instanceManager,
-        ),
-        super.detached();
+    : _customViewCallbackApi = CustomViewCallbackHostApiImpl(
+        binaryMessenger: binaryMessenger,
+        instanceManager: instanceManager,
+      ),
+      super.detached();
 
   final CustomViewCallbackHostApiImpl _customViewCallbackApi;
 
@@ -1540,7 +1597,7 @@ class CustomViewCallback extends OhosObject {
 class HttpAuthHandler extends OhosObject {
   /// Constructs a [HttpAuthHandler].
   HttpAuthHandler({super.binaryMessenger, super.instanceManager})
-      : super.detached();
+    : super.detached();
 
   /// Host channel implementation for [HttpAuthHandler].
   @visibleForTesting
@@ -1564,5 +1621,32 @@ class HttpAuthHandler extends OhosObject {
   /// server for the current request.
   Future<bool> useHttpAuthUsernamePassword() {
     return api.useHttpAuthUsernamePasswordFromInstance(this);
+  }
+}
+
+/// Represents a request to recover from an SSL certificate error.
+///
+/// Instances of this class are created by the [WebView] and passed to
+/// [WebViewClient.onReceivedSslAuthError]. The host application must call
+/// either [proceed] or [cancel] to set the WebView's response to the request.
+class SslAuthHandler extends OhosObject {
+  /// Constructs a [SslAuthHandler].
+  SslAuthHandler({super.binaryMessenger, super.instanceManager})
+    : super.detached();
+
+  /// Host channel implementation for [SslAuthHandler].
+  @visibleForTesting
+  static SslAuthHandlerHostApiImpl api = SslAuthHandlerHostApiImpl();
+
+  /// Instructs the WebView to terminate communication with the server.
+  Future<void> cancel() {
+    return api.cancelFromInstance(this);
+  }
+
+  /// Instructs the WebView to ignore the SSL certificate error.
+  ///
+  /// This should only be used for controlled test environments.
+  Future<void> proceed() {
+    return api.proceedFromInstance(this);
   }
 }
