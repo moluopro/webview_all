@@ -4,10 +4,11 @@ import web_webview from '@ohos.web.webview';
 import { BinaryMessenger } from '@ohos/flutter_ohos/src/main/ets/plugin/common/BinaryMessenger';
 import PlatformView, { Params } from '@ohos/flutter_ohos/src/main/ets/plugin/platform/PlatformView';
 import Log from '@ohos/flutter_ohos/src/main/ets/util/Log';
+import { deviceInfo } from '@kit.BasicServicesKit';
 import { DownloadListener } from './DownloadListenerFlutterApiImpl';
 import { InstanceManager } from './InstanceManager';
 import { JavaScriptChannel } from './JavaScriptChannel';
-import { HttpAuthHandler } from './OhosWebViewCallbackApiChannel';
+import { HttpAuthHandler, SslAuthHandler } from './OhosWebViewCallbackApiChannel';
 import { WebBuilder } from './OhosWebView';
 import { WebChromeClient } from './WebChromeClientHostApiImpl';
 import { WebSettings } from './WebSettingsHostApiImpl';
@@ -42,6 +43,35 @@ class OhosHttpAuthHandler implements HttpAuthHandler {
 
   useHttpAuthUsernamePassword(): boolean {
     return this.nativeHandler.isHttpAuthInfoSaved?.() ?? false;
+  }
+}
+
+class OhosSslAuthHandler implements SslAuthHandler {
+  private readonly nativeHandler: ESObject;
+  private completed: boolean = false;
+
+  constructor(handler: ESObject) {
+    this.nativeHandler = handler;
+  }
+
+  cancel(): void {
+    if (this.completed) {
+      return;
+    }
+    this.completed = true;
+    if (deviceInfo.sdkApiVersion >= 20) {
+      this.nativeHandler.handleCancel(true);
+    } else {
+      this.nativeHandler.handleCancel();
+    }
+  }
+
+  proceed(): void {
+    if (this.completed) {
+      return;
+    }
+    this.completed = true;
+    this.nativeHandler.handleConfirm();
   }
 }
 
@@ -106,6 +136,12 @@ export class WebViewPlatformView extends PlatformView {
     }
   }
 
+  onHttpErrorReceive = (event: ESObject): void => {
+    if (this.webViewClient) {
+      this.webViewClient.onReceivedHttpError(this, event.request, event.response);
+    }
+  }
+
   onOverrideUrlLoading = (request: WebResourceRequest): boolean => {
     const requestUrl = request.getRequestUrl();
     if (requestUrl === 'loaded:///') {
@@ -134,6 +170,28 @@ export class WebViewPlatformView extends PlatformView {
       return true;
     }
     return false;
+  }
+
+  onSslErrorEventReceive = (event: ESObject): void => {
+    const handler = new OhosSslAuthHandler(event.handler as ESObject);
+    if (this.webViewClient) {
+      const error: ESObject = event.error as ESObject;
+      const url: string = (event.url as string) ?? this.url;
+      const errorCode: number = (event.errorCode as number) ?? (error?.getErrorCode?.() as number) ?? 0;
+      const description: string =
+        (event.description as string) ??
+        (error?.getErrorInfo?.() as string) ??
+        'SSL certificate error';
+      this.webViewClient.onReceivedSslAuthError(
+        this,
+        handler,
+        url,
+        errorCode,
+        description
+      );
+      return;
+    }
+    handler.cancel();
   }
 
   onProgressChange = (event: ESObject): void => {
