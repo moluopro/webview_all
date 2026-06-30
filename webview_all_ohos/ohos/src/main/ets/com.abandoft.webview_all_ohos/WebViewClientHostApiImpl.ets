@@ -1,4 +1,4 @@
-import { HttpAuthHandler, Reply } from './OhosWebViewCallbackApiChannel';
+import { HttpAuthHandler, Reply, SslAuthHandler } from './OhosWebViewCallbackApiChannel';
 import { InstanceManager } from './InstanceManager';
 import { WebViewClientFlutterApiImpl } from './WebViewClientFlutterApiImpl';
 import { WebViewPlatformView } from './WebViewPlatformView';
@@ -7,6 +7,7 @@ export interface WebViewClient {
   onPageStarted(view: WebViewPlatformView, url: string): void;
   onPageFinished(view: WebViewPlatformView, url: string): void;
   onReceivedError(view: WebViewPlatformView, request: WebResourceRequest, error: WebResourceError): void;
+  onReceivedHttpError(view: WebViewPlatformView, request: WebResourceRequest, response: WebResourceResponse): void;
   shouldOverrideUrlLoading(view: WebViewPlatformView, request: WebResourceRequest): boolean;
   doUpdateVisitedHistory(view: WebViewPlatformView, url: string, isReload: boolean): void;
   onReceivedHttpAuthRequest(
@@ -14,6 +15,13 @@ export interface WebViewClient {
     handler: HttpAuthHandler,
     host: string,
     realm: string
+  ): void;
+  onReceivedSslAuthError(
+    view: WebViewPlatformView,
+    handler: SslAuthHandler,
+    url: string,
+    errorCode: number,
+    description: string
   ): void;
 }
 
@@ -38,6 +46,10 @@ class OhosWebViewClient implements WebViewClient {
     this.flutterApi.onReceivedRequestErrorImpl(this, view, request, error, this.emptyReply);
   }
 
+  onReceivedHttpError(view: WebViewPlatformView, request: WebResourceRequest, response: WebResourceResponse): void {
+    this.flutterApi.onReceivedHttpErrorImpl(this, view, request, response, this.emptyReply);
+  }
+
   shouldOverrideUrlLoading(view: WebViewPlatformView, request: WebResourceRequest): boolean {
     this.flutterApi.requestLoadingImpl(this, view, request, this.emptyReply);
     return this.shouldOverride;
@@ -54,6 +66,16 @@ class OhosWebViewClient implements WebViewClient {
     realm: string
   ): void {
     this.flutterApi.onReceivedHttpAuthRequestImpl(this, view, handler, host, realm, this.emptyReply);
+  }
+
+  onReceivedSslAuthError(
+    view: WebViewPlatformView,
+    handler: SslAuthHandler,
+    url: string,
+    errorCode: number,
+    description: string
+  ): void {
+    this.flutterApi.onReceivedSslAuthErrorImpl(this, view, handler, url, errorCode, description, this.emptyReply);
   }
 
   setReturnValueForShouldOverrideUrlLoading(value: boolean): void {
