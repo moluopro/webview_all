@@ -37,15 +37,14 @@ class OhosWebViewCookieManager extends PlatformWebViewCookieManager {
   OhosWebViewCookieManager(
     PlatformWebViewCookieManagerCreationParams params, {
     CookieManager? cookieManager,
-  })  : _cookieManager = cookieManager ?? CookieManager.instance,
-        super.implementation(
-          params is OhosWebViewCookieManagerCreationParams
-              ? params
-              : OhosWebViewCookieManagerCreationParams
-                  .fromPlatformWebViewCookieManagerCreationParams(
-                  params,
-                ),
-        );
+  }) : _cookieManager = cookieManager ?? CookieManager.instance,
+       super.implementation(
+         params is OhosWebViewCookieManagerCreationParams
+             ? params
+             : OhosWebViewCookieManagerCreationParams.fromPlatformWebViewCookieManagerCreationParams(
+                 params,
+               ),
+       );
 
   final CookieManager _cookieManager;
 
@@ -56,11 +55,8 @@ class OhosWebViewCookieManager extends PlatformWebViewCookieManager {
 
   @override
   Future<void> setCookie(WebViewCookie cookie) {
-    if (!_isValidPath(cookie.path)) {
-      throw ArgumentError(
-        'The path property for the provided cookie was not given a legal value.',
-      );
-    }
+    _validateWebViewCookie(cookie);
+
     return _cookieManager.setCookie(
       cookie.domain,
       '${Uri.encodeComponent(cookie.name)}=${Uri.encodeComponent(cookie.value)}; path=${cookie.path}',
@@ -98,6 +94,53 @@ class OhosWebViewCookieManager extends PlatformWebViewCookieManager {
       );
     }
     return webViewCookies;
+  }
+
+  void _validateWebViewCookie(WebViewCookie cookie) {
+    _validateCookieName(cookie.name);
+    _validateCookieAttribute('domain', cookie.domain);
+    _validateCookieAttribute('path', cookie.path);
+
+    if (cookie.path.isNotEmpty && !cookie.path.startsWith('/')) {
+      throw ArgumentError.value(
+        cookie.path,
+        'cookie.path',
+        'Cookie path must start with "/".',
+      );
+    }
+    if (!_isValidPath(cookie.path)) {
+      throw ArgumentError(
+        'The path property for the provided cookie was not given a legal value.',
+      );
+    }
+  }
+
+  void _validateCookieName(String name) {
+    if (name.isEmpty) {
+      throw ArgumentError.value(name, 'cookie.name', 'Cookie name is empty.');
+    }
+
+    if (RegExp(r'[\x00-\x20\x7F()<>@,;:\\"/\[\]?={}]+').hasMatch(name)) {
+      throw ArgumentError.value(
+        name,
+        'cookie.name',
+        'Cookie name contains characters rejected by browsers.',
+      );
+    }
+  }
+
+  void _validateCookieAttribute(String field, String value) {
+    if (value.isEmpty) {
+      return;
+    }
+
+    if (RegExp(r'[\x00-\x1F\x7F;]').hasMatch(value)) {
+      throw ArgumentError.value(
+        value,
+        'cookie.$field',
+        'Cookie $field contains characters rejected by browsers.',
+      );
+    }
   }
 
   bool _isValidPath(String path) {
