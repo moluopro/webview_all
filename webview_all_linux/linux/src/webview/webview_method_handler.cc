@@ -1,20 +1,318 @@
-#include "webview/webview_internal.h"
 #include "common/method_channel_utils.h"
+#include "webview/webview_internal.h"
 
 #include <libsoup/soup.h>
 
 #include <cmath>
 #include <cstring>
 
-void instance_method_call_cb(FlMethodChannel* channel,
-                                    FlMethodCall* method_call,
-                                    gpointer user_data) {
-  LinuxWebView* webview = static_cast<LinuxWebView*>(user_data);
-  const gchar* method = fl_method_call_get_name(method_call);
-  FlValue* args = fl_method_call_get_args(method_call);
+namespace {
+
+constexpr const gchar *kLinuxWebViewInstanceKey = "webview_all_linux_instance";
+
+typedef struct {
+  WebKitWebView *web_view;
+  FlMethodCall *method_call;
+  SoupSession *session;
+  SoupMessage *message;
+  gchar *url;
+} PendingSoupLoadRequest;
+
+void append_header_to_map(const char *name, const char *value,
+                          gpointer user_data) {
+  FlValue *headers = static_cast<FlValue *>(user_data);
+  if (name == nullptr || value == nullptr) {
+    return;
+  }
+  fl_value_set_string_take(headers, name, fl_value_new_string(value));
+}
+
+void append_headers_from_value(SoupMessageHeaders *headers,
+                               FlValue *header_value) {
+  if (headers == nullptr || header_value == nullptr ||
+      fl_value_get_type(header_value) != FL_VALUE_TYPE_MAP) {
+    return;
+  }
+
+  const size_t header_count = fl_value_get_length(header_value);
+  for (size_t i = 0; i < header_count; ++i) {
+    const gchar *key =
+        fl_value_to_string_or_null(fl_value_get_map_key(header_value, i));
+    const gchar *value =
+        fl_value_to_string_or_null(fl_value_get_map_value(header_value, i));
+    if (key != nullptr && value != nullptr) {
+      soup_message_headers_append(headers, key, value);
+    }
+  }
+}
+
+GBytes *body_bytes_from_value(FlValue *body_value) {
+  if (body_value == nullptr ||
+      fl_value_get_type(body_value) != FL_VALUE_TYPE_UINT8_LIST) {
+    return nullptr;
+  }
+
+  return g_bytes_new(fl_value_get_uint8_list(body_value),
+                     fl_value_get_length(body_value));
+}
+
+guint map_lookup_guint(FlValue *map, const gchar *key, guint fallback) {
+  const gint64 value = map_lookup_int(map, key, fallback);
+  if (value < 0) {
+    return 0;
+  }
+  if (value > static_cast<gint64>(G_MAXUINT)) {
+    return G_MAXUINT;
+  }
+  return static_cast<guint>(value);
+}
+
+void apply_webkit_settings(LinuxWebView *webview, FlValue *args) {
+  WebKitSettings *settings = webkit_web_view_get_settings(webview->web_view);
+  FlValue *value = nullptr;
+
+  value = map_lookup(args, "developerExtrasEnabled");
+  if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_BOOL) {
+    webkit_settings_set_enable_developer_extras(settings,
+                                                fl_value_get_bool(value));
+  }
+
+  value = map_lookup(args, "javascriptCanOpenWindowsAutomatically");
+  if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_BOOL) {
+    webkit_settings_set_javascript_can_open_windows_automatically(
+        settings, fl_value_get_bool(value));
+  }
+
+  value = map_lookup(args, "mediaPlaybackRequiresUserGesture");
+  if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_BOOL) {
+    webkit_settings_set_media_playback_requires_user_gesture(
+        settings, fl_value_get_bool(value));
+  }
+
+  value = map_lookup(args, "mediaPlaybackAllowsInline");
+  if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_BOOL) {
+    webkit_settings_set_media_playback_allows_inline(settings,
+                                                     fl_value_get_bool(value));
+  }
+
+  value = map_lookup(args, "pageCacheEnabled");
+  if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_BOOL) {
+    webkit_settings_set_enable_page_cache(settings, fl_value_get_bool(value));
+  }
+
+  value = map_lookup(args, "allowFileAccessFromFileUrls");
+  if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_BOOL) {
+    webkit_settings_set_allow_file_access_from_file_urls(
+        settings, fl_value_get_bool(value));
+  }
+
+  value = map_lookup(args, "allowUniversalAccessFromFileUrls");
+  if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_BOOL) {
+    webkit_settings_set_allow_universal_access_from_file_urls(
+        settings, fl_value_get_bool(value));
+  }
+
+  value = map_lookup(args, "zoomTextOnly");
+  if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_BOOL) {
+    webkit_settings_set_zoom_text_only(settings, fl_value_get_bool(value));
+  }
+
+  value = map_lookup(args, "defaultFontSize");
+  if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_INT) {
+    webkit_settings_set_default_font_size(
+        settings, map_lookup_guint(args, "defaultFontSize", 16));
+  }
+
+  value = map_lookup(args, "defaultMonospaceFontSize");
+  if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_INT) {
+    webkit_settings_set_default_monospace_font_size(settings,
+                                                    map_lookup_guint(
+                                                        args,
+                                                        "defaultMonospaceFontSize",
+                                                        13));
+  }
+
+  value = map_lookup(args, "minimumFontSize");
+  if (value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_INT) {
+    webkit_settings_set_minimum_font_size(
+        settings, map_lookup_guint(args, "minimumFontSize", 0));
+  }
+
+  value = map_lookup(args, "zoomFactor");
+  if (value != nullptr) {
+    webkit_web_view_set_zoom_level(
+        webview->web_view, map_lookup_double(args, "zoomFactor", 1.0));
+  }
+}
+
+void destroy_pending_soup_load_request(PendingSoupLoadRequest *pending) {
+  if (pending == nullptr) {
+    return;
+  }
+  g_clear_object(&pending->web_view);
+  g_clear_object(&pending->method_call);
+  g_clear_object(&pending->session);
+  g_clear_object(&pending->message);
+  g_free(pending->url);
+  g_free(pending);
+}
+
+void clear_local_storage_finished_cb(GObject *object, GAsyncResult *result,
+                                     gpointer user_data) {
+  FlMethodCall *method_call = FL_METHOD_CALL(user_data);
+  GError *error = nullptr;
+  webkit_website_data_manager_clear_finish(WEBKIT_WEBSITE_DATA_MANAGER(object),
+                                           result, &error);
+  if (error != nullptr) {
+    respond(method_call, error_response("storage_error", error->message));
+    g_clear_error(&error);
+  } else {
+    respond(method_call, success_response());
+  }
+  g_object_unref(method_call);
+}
+
+void emit_soup_http_error(LinuxWebView *webview, SoupMessage *message,
+                          const gchar *url) {
+  const SoupStatus status = soup_message_get_status(message);
+  if (status < 400) {
+    return;
+  }
+
+  FlValue *event = make_event("httpError");
+  fl_value_set_string_take(event, "url",
+                           fl_value_new_string(url != nullptr ? url : ""));
+  fl_value_set_string_take(event, "statusCode",
+                           fl_value_new_int(static_cast<gint>(status)));
+
+  const gchar *method = soup_message_get_method(message);
+  fl_value_set_string_take(
+      event, "method", fl_value_new_string(method != nullptr ? method : ""));
+  fl_value_set_string_take(event, "isForMainFrame", fl_value_new_bool(TRUE));
+
+  FlValue *request_headers = fl_value_new_map();
+  SoupMessageHeaders *raw_request_headers =
+      soup_message_get_request_headers(message);
+  if (raw_request_headers != nullptr) {
+    soup_message_headers_foreach(raw_request_headers, append_header_to_map,
+                                 request_headers);
+  }
+  fl_value_set_string_take(event, "requestHeaders", request_headers);
+
+  FlValue *headers = fl_value_new_map();
+  SoupMessageHeaders *response_headers =
+      soup_message_get_response_headers(message);
+  if (response_headers != nullptr) {
+    const gchar *mime_type =
+        soup_message_headers_get_content_type(response_headers, nullptr);
+    if (mime_type != nullptr) {
+      fl_value_set_string_take(event, "mimeType",
+                               fl_value_new_string(mime_type));
+    }
+    soup_message_headers_foreach(response_headers, append_header_to_map,
+                                 headers);
+  }
+  fl_value_set_string_take(event, "headers", headers);
+  send_event(webview, event);
+}
+
+void soup_load_request_cb(GObject *source_object, GAsyncResult *result,
+                          gpointer user_data) {
+  PendingSoupLoadRequest *pending =
+      static_cast<PendingSoupLoadRequest *>(user_data);
+  GError *error = nullptr;
+  GBytes *bytes =
+      soup_session_send_and_read_finish(pending->session, result, &error);
+
+  if (error != nullptr) {
+    respond(pending->method_call,
+            error_response("load_request_error", error->message));
+    g_clear_error(&error);
+    destroy_pending_soup_load_request(pending);
+    return;
+  }
+  if (bytes == nullptr) {
+    respond(pending->method_call,
+            error_response("load_request_error", "No response body returned."));
+    destroy_pending_soup_load_request(pending);
+    return;
+  }
+
+  LinuxWebView *webview = static_cast<LinuxWebView *>(
+      g_object_get_data(G_OBJECT(pending->web_view), kLinuxWebViewInstanceKey));
+  if (webview != nullptr) {
+    emit_soup_http_error(webview, pending->message, pending->url);
+
+    SoupMessageHeaders *response_headers =
+        soup_message_get_response_headers(pending->message);
+    const gchar *mime_type =
+        response_headers == nullptr
+            ? nullptr
+            : soup_message_headers_get_content_type(response_headers, nullptr);
+    webkit_web_view_load_bytes(
+        pending->web_view, bytes,
+        mime_type != nullptr ? mime_type : "application/octet-stream", nullptr,
+        pending->url);
+  }
+
+  g_bytes_unref(bytes);
+  respond(pending->method_call, success_response());
+  destroy_pending_soup_load_request(pending);
+}
+
+void load_request_with_soup(WebKitWebView *web_view, FlMethodCall *method_call,
+                            const gchar *url, const gchar *method,
+                            FlValue *headers, FlValue *body_value) {
+  gchar *normalized_method =
+      g_ascii_strup(method != nullptr ? method : "GET", -1);
+  SoupMessage *message = soup_message_new(normalized_method, url);
+  g_free(normalized_method);
+  if (message == nullptr) {
+    respond(method_call,
+            error_response("load_request_error", "Failed to create request."));
+    return;
+  }
+
+  SoupMessageHeaders *request_headers =
+      soup_message_get_request_headers(message);
+  append_headers_from_value(request_headers, headers);
+
+  GBytes *body = body_bytes_from_value(body_value);
+  if (body != nullptr) {
+    const gchar *content_type =
+        request_headers == nullptr
+            ? nullptr
+            : soup_message_headers_get_content_type(request_headers, nullptr);
+    soup_message_set_request_body_from_bytes(
+        message,
+        content_type != nullptr ? content_type : "application/octet-stream",
+        body);
+    g_bytes_unref(body);
+  }
+
+  PendingSoupLoadRequest *pending = g_new0(PendingSoupLoadRequest, 1);
+  pending->web_view = WEBKIT_WEB_VIEW(g_object_ref(web_view));
+  pending->method_call = FL_METHOD_CALL(g_object_ref(method_call));
+  pending->session = soup_session_new();
+  pending->message = SOUP_MESSAGE(g_object_ref(message));
+  pending->url = g_strdup(url);
+
+  soup_session_send_and_read_async(pending->session, message,
+                                   G_PRIORITY_DEFAULT, nullptr,
+                                   soup_load_request_cb, pending);
+  g_object_unref(message);
+}
+
+} // namespace
+
+void instance_method_call_cb(FlMethodChannel *channel,
+                             FlMethodCall *method_call, gpointer user_data) {
+  LinuxWebView *webview = static_cast<LinuxWebView *>(user_data);
+  const gchar *method = fl_method_call_get_name(method_call);
+  FlValue *args = fl_method_call_get_args(method_call);
 
   if (strcmp(method, "setFrame") == 0) {
-    GtkWidget* widget = GTK_WIDGET(webview->web_view);
+    GtkWidget *widget = GTK_WIDGET(webview->web_view);
     const double x = map_lookup_double(args, "x", 0);
     const double y = map_lookup_double(args, "y", 0);
     const double width = map_lookup_double(args, "width", 0);
@@ -44,10 +342,16 @@ void instance_method_call_cb(FlMethodChannel* channel,
     return;
   }
 
+  if (strcmp(method, "applySettings") == 0) {
+    apply_webkit_settings(webview, args);
+    respond(method_call, success_response());
+    return;
+  }
+
   if (strcmp(method, "loadFile") == 0) {
-    const gchar* file_path = map_lookup_string(args, "path");
-    GError* error = nullptr;
-    gchar* uri = g_filename_to_uri(file_path, nullptr, &error);
+    const gchar *file_path = map_lookup_string(args, "path");
+    GError *error = nullptr;
+    gchar *uri = g_filename_to_uri(file_path, nullptr, &error);
     if (error != nullptr) {
       respond(method_call, error_response("load_file_error", error->message));
       g_clear_error(&error);
@@ -69,24 +373,26 @@ void instance_method_call_cb(FlMethodChannel* channel,
   }
 
   if (strcmp(method, "loadRequest") == 0) {
-    const gchar* url = map_lookup_string(args, "url");
-    FlValue* headers = map_lookup(args, "headers");
-    WebKitURIRequest* request = webkit_uri_request_new(url);
-    if (headers != nullptr &&
-        fl_value_get_type(headers) == FL_VALUE_TYPE_MAP) {
-      SoupMessageHeaders* request_headers =
-          webkit_uri_request_get_http_headers(request);
-      const size_t header_count = fl_value_get_length(headers);
-      for (size_t i = 0; i < header_count; ++i) {
-        const gchar* key =
-            fl_value_to_string_or_null(fl_value_get_map_key(headers, i));
-        const gchar* value =
-            fl_value_to_string_or_null(fl_value_get_map_value(headers, i));
-        if (key != nullptr && value != nullptr) {
-          soup_message_headers_append(request_headers, key, value);
-        }
-      }
+    const gchar *url = map_lookup_string(args, "url");
+    const gchar *request_method = map_lookup_string(args, "method");
+    FlValue *headers = map_lookup(args, "headers");
+    FlValue *body = map_lookup(args, "body");
+
+    const bool has_body = body != nullptr &&
+                          fl_value_get_type(body) == FL_VALUE_TYPE_UINT8_LIST &&
+                          fl_value_get_length(body) > 0;
+    if (g_ascii_strcasecmp(request_method != nullptr ? request_method : "get",
+                           "get") != 0 ||
+        has_body) {
+      load_request_with_soup(webview->web_view, method_call, url,
+                             request_method != nullptr ? request_method : "GET",
+                             headers, body);
+      return;
     }
+
+    WebKitURIRequest *request = webkit_uri_request_new(url);
+    append_headers_from_value(webkit_uri_request_get_http_headers(request),
+                              headers);
     webkit_web_view_load_request(webview->web_view, request);
     g_object_unref(request);
     respond(method_call, success_response());
@@ -94,7 +400,7 @@ void instance_method_call_cb(FlMethodChannel* channel,
   }
 
   if (strcmp(method, "currentUrl") == 0) {
-    const gchar* uri = webkit_web_view_get_uri(webview->web_view);
+    const gchar *uri = webkit_web_view_get_uri(webview->web_view);
     respond(method_call,
             success_response(uri != nullptr ? fl_value_new_string(uri)
                                             : fl_value_new_null()));
@@ -102,9 +408,8 @@ void instance_method_call_cb(FlMethodChannel* channel,
   }
 
   if (strcmp(method, "canGoBack") == 0) {
-    respond(method_call,
-            success_response(fl_value_new_bool(
-                webkit_web_view_can_go_back(webview->web_view))));
+    respond(method_call, success_response(fl_value_new_bool(
+                             webkit_web_view_can_go_back(webview->web_view))));
     return;
   }
 
@@ -141,10 +446,16 @@ void instance_method_call_cb(FlMethodChannel* channel,
   }
 
   if (strcmp(method, "clearLocalStorage") == 0) {
-    evaluate_javascript(
-        webview->web_view,
-        "try { localStorage.clear(); sessionStorage.clear(); } catch (_) {}",
-        method_call);
+    WebKitWebContext *context = webkit_web_view_get_context(webview->web_view);
+    WebKitWebsiteDataManager *website_data_manager =
+        webkit_web_context_get_website_data_manager(context);
+    g_object_ref(method_call);
+    webkit_website_data_manager_clear(
+        website_data_manager,
+        static_cast<WebKitWebsiteDataTypes>(
+            WEBKIT_WEBSITE_DATA_LOCAL_STORAGE |
+            WEBKIT_WEBSITE_DATA_SESSION_STORAGE),
+        0, nullptr, clear_local_storage_finished_cb, method_call);
     return;
   }
 
@@ -156,15 +467,15 @@ void instance_method_call_cb(FlMethodChannel* channel,
   }
 
   if (strcmp(method, "addJavaScriptChannel") == 0) {
-    const gchar* name = map_lookup_string(args, "name");
+    const gchar *name = map_lookup_string(args, "name");
     if (!webkit_user_content_manager_register_script_message_handler(
             webview->content_manager, name)) {
-      respond(method_call,
-              error_response("channel_error", "Failed to register JS channel."));
+      respond(method_call, error_response("channel_error",
+                                          "Failed to register JS channel."));
       return;
     }
-    gchar* signal_name = g_strdup_printf("script-message-received::%s", name);
-    JavaScriptChannelHandlerData* data =
+    gchar *signal_name = g_strdup_printf("script-message-received::%s", name);
+    JavaScriptChannelHandlerData *data =
         g_new0(JavaScriptChannelHandlerData, 1);
     data->webview = webview;
     data->name = g_strdup(name);
@@ -183,7 +494,7 @@ void instance_method_call_cb(FlMethodChannel* channel,
   }
 
   if (strcmp(method, "removeJavaScriptChannel") == 0) {
-    const gchar* name = map_lookup_string(args, "name");
+    const gchar *name = map_lookup_string(args, "name");
     gpointer signal_id_ptr =
         g_hash_table_lookup(webview->js_channel_signal_ids, name);
     if (signal_id_ptr != nullptr) {
@@ -200,7 +511,7 @@ void instance_method_call_cb(FlMethodChannel* channel,
   }
 
   if (strcmp(method, "getTitle") == 0) {
-    const gchar* title = webkit_web_view_get_title(webview->web_view);
+    const gchar *title = webkit_web_view_get_title(webview->web_view);
     respond(method_call,
             success_response(title != nullptr ? fl_value_new_string(title)
                                               : fl_value_new_null()));
@@ -208,27 +519,25 @@ void instance_method_call_cb(FlMethodChannel* channel,
   }
 
   if (strcmp(method, "scrollTo") == 0) {
-    gchar* script = g_strdup_printf("window.scrollTo(%" G_GINT64_FORMAT
-                                    ", %" G_GINT64_FORMAT ");",
-                                    map_lookup_int(args, "x", 0),
-                                    map_lookup_int(args, "y", 0));
+    gchar *script = g_strdup_printf(
+        "window.scrollTo(%" G_GINT64_FORMAT ", %" G_GINT64_FORMAT ");",
+        map_lookup_int(args, "x", 0), map_lookup_int(args, "y", 0));
     evaluate_javascript(webview->web_view, script, method_call);
     g_free(script);
     return;
   }
 
   if (strcmp(method, "scrollBy") == 0) {
-    gchar* script = g_strdup_printf("window.scrollBy(%" G_GINT64_FORMAT
-                                    ", %" G_GINT64_FORMAT ");",
-                                    map_lookup_int(args, "x", 0),
-                                    map_lookup_int(args, "y", 0));
+    gchar *script = g_strdup_printf(
+        "window.scrollBy(%" G_GINT64_FORMAT ", %" G_GINT64_FORMAT ");",
+        map_lookup_int(args, "x", 0), map_lookup_int(args, "y", 0));
     evaluate_javascript(webview->web_view, script, method_call);
     g_free(script);
     return;
   }
 
   if (strcmp(method, "getScrollPosition") == 0) {
-    FlValue* result = fl_value_new_map();
+    FlValue *result = fl_value_new_map();
     fl_value_set_string_take(result, "x",
                              fl_value_new_float(webview->last_scroll_x));
     fl_value_set_string_take(result, "y",
@@ -237,13 +546,21 @@ void instance_method_call_cb(FlMethodChannel* channel,
     return;
   }
 
-  if (strcmp(method, "setVerticalScrollBarEnabled") == 0 ||
-      strcmp(method, "setHorizontalScrollBarEnabled") == 0) {
-    gboolean enabled = map_lookup_bool(args, "enabled", TRUE);
-    gchar* script = g_strdup_printf(
-        "document.documentElement.style.overflow = '%s'; "
-        "document.body.style.overflow = '%s';",
-        enabled ? "auto" : "hidden", enabled ? "auto" : "hidden");
+  if (strcmp(method, "setVerticalScrollBarEnabled") == 0) {
+    webview->vertical_scrollbar_enabled =
+        map_lookup_bool(args, "enabled", TRUE);
+    rebuild_user_scripts(webview);
+    gchar *script = build_scrollbar_style_script(webview);
+    evaluate_javascript(webview->web_view, script, method_call);
+    g_free(script);
+    return;
+  }
+
+  if (strcmp(method, "setHorizontalScrollBarEnabled") == 0) {
+    webview->horizontal_scrollbar_enabled =
+        map_lookup_bool(args, "enabled", TRUE);
+    rebuild_user_scripts(webview);
+    gchar *script = build_scrollbar_style_script(webview);
     evaluate_javascript(webview->web_view, script, method_call);
     g_free(script);
     return;
@@ -264,28 +581,130 @@ void instance_method_call_cb(FlMethodChannel* channel,
   }
 
   if (strcmp(method, "setJavaScriptMode") == 0) {
-    WebKitSettings* settings = webkit_web_view_get_settings(webview->web_view);
+    WebKitSettings *settings = webkit_web_view_get_settings(webview->web_view);
     webkit_settings_set_enable_javascript(
         settings, map_lookup_bool(args, "enabled", TRUE));
     respond(method_call, success_response());
     return;
   }
 
+  if (strcmp(method, "setDeveloperExtrasEnabled") == 0) {
+    WebKitSettings *settings = webkit_web_view_get_settings(webview->web_view);
+    webkit_settings_set_enable_developer_extras(
+        settings, map_lookup_bool(args, "enabled", FALSE));
+    respond(method_call, success_response());
+    return;
+  }
+
+  if (strcmp(method, "openDevTools") == 0) {
+    WebKitSettings *settings = webkit_web_view_get_settings(webview->web_view);
+    webkit_settings_set_enable_developer_extras(settings, TRUE);
+    webkit_web_inspector_show(webkit_web_view_get_inspector(webview->web_view));
+    respond(method_call, success_response());
+    return;
+  }
+
+  if (strcmp(method, "setJavaScriptCanOpenWindowsAutomatically") == 0) {
+    WebKitSettings *settings = webkit_web_view_get_settings(webview->web_view);
+    webkit_settings_set_javascript_can_open_windows_automatically(
+        settings, map_lookup_bool(args, "enabled", FALSE));
+    respond(method_call, success_response());
+    return;
+  }
+
+  if (strcmp(method, "setMediaPlaybackRequiresUserGesture") == 0) {
+    WebKitSettings *settings = webkit_web_view_get_settings(webview->web_view);
+    webkit_settings_set_media_playback_requires_user_gesture(
+        settings, map_lookup_bool(args, "require", FALSE));
+    respond(method_call, success_response());
+    return;
+  }
+
+  if (strcmp(method, "setMediaPlaybackAllowsInline") == 0) {
+    WebKitSettings *settings = webkit_web_view_get_settings(webview->web_view);
+    webkit_settings_set_media_playback_allows_inline(
+        settings, map_lookup_bool(args, "allow", TRUE));
+    respond(method_call, success_response());
+    return;
+  }
+
+  if (strcmp(method, "setPageCacheEnabled") == 0) {
+    WebKitSettings *settings = webkit_web_view_get_settings(webview->web_view);
+    webkit_settings_set_enable_page_cache(
+        settings, map_lookup_bool(args, "enabled", TRUE));
+    respond(method_call, success_response());
+    return;
+  }
+
+  if (strcmp(method, "setAllowFileAccessFromFileUrls") == 0) {
+    WebKitSettings *settings = webkit_web_view_get_settings(webview->web_view);
+    webkit_settings_set_allow_file_access_from_file_urls(
+        settings, map_lookup_bool(args, "allow", FALSE));
+    respond(method_call, success_response());
+    return;
+  }
+
+  if (strcmp(method, "setAllowUniversalAccessFromFileUrls") == 0) {
+    WebKitSettings *settings = webkit_web_view_get_settings(webview->web_view);
+    webkit_settings_set_allow_universal_access_from_file_urls(
+        settings, map_lookup_bool(args, "allow", FALSE));
+    respond(method_call, success_response());
+    return;
+  }
+
+  if (strcmp(method, "setZoomTextOnly") == 0) {
+    WebKitSettings *settings = webkit_web_view_get_settings(webview->web_view);
+    webkit_settings_set_zoom_text_only(settings,
+                                       map_lookup_bool(args, "enabled", FALSE));
+    respond(method_call, success_response());
+    return;
+  }
+
+  if (strcmp(method, "setDefaultFontSize") == 0) {
+    WebKitSettings *settings = webkit_web_view_get_settings(webview->web_view);
+    webkit_settings_set_default_font_size(
+        settings, map_lookup_guint(args, "fontSize", 16));
+    respond(method_call, success_response());
+    return;
+  }
+
+  if (strcmp(method, "setDefaultMonospaceFontSize") == 0) {
+    WebKitSettings *settings = webkit_web_view_get_settings(webview->web_view);
+    webkit_settings_set_default_monospace_font_size(
+        settings, map_lookup_guint(args, "fontSize", 13));
+    respond(method_call, success_response());
+    return;
+  }
+
+  if (strcmp(method, "setMinimumFontSize") == 0) {
+    WebKitSettings *settings = webkit_web_view_get_settings(webview->web_view);
+    webkit_settings_set_minimum_font_size(
+        settings, map_lookup_guint(args, "fontSize", 0));
+    respond(method_call, success_response());
+    return;
+  }
+
+  if (strcmp(method, "setZoomFactor") == 0) {
+    webkit_web_view_set_zoom_level(
+        webview->web_view, map_lookup_double(args, "zoomFactor", 1.0));
+    respond(method_call, success_response());
+    return;
+  }
+
   if (strcmp(method, "setUserAgent") == 0) {
-    WebKitSettings* settings = webkit_web_view_get_settings(webview->web_view);
-    const gchar* user_agent = map_lookup_string(args, "userAgent");
+    WebKitSettings *settings = webkit_web_view_get_settings(webview->web_view);
+    const gchar *user_agent = map_lookup_string(args, "userAgent");
     webkit_settings_set_user_agent(settings, user_agent);
     respond(method_call, success_response());
     return;
   }
 
   if (strcmp(method, "getUserAgent") == 0) {
-    WebKitSettings* settings = webkit_web_view_get_settings(webview->web_view);
-    const gchar* user_agent = webkit_settings_get_user_agent(settings);
-    respond(method_call,
-            success_response(user_agent != nullptr
-                                 ? fl_value_new_string(user_agent)
-                                 : fl_value_new_null()));
+    WebKitSettings *settings = webkit_web_view_get_settings(webview->web_view);
+    const gchar *user_agent = webkit_settings_get_user_agent(settings);
+    respond(method_call, success_response(user_agent != nullptr
+                                              ? fl_value_new_string(user_agent)
+                                              : fl_value_new_null()));
     return;
   }
 
@@ -301,13 +720,39 @@ void instance_method_call_cb(FlMethodChannel* channel,
     return;
   }
 
+  if (strcmp(method, "setJavaScriptDialogCallbacksEnabled") == 0) {
+    webview->java_script_alert_dialog_enabled =
+        map_lookup_bool(args, "alert", FALSE);
+    webview->java_script_confirm_dialog_enabled =
+        map_lookup_bool(args, "confirm", FALSE);
+    webview->java_script_prompt_dialog_enabled =
+        map_lookup_bool(args, "prompt", FALSE);
+    respond(method_call, success_response());
+    return;
+  }
+
+  if (strcmp(method, "setOverScrollMode") == 0) {
+    const gchar *mode = map_lookup_string(args, "mode");
+    if (g_strcmp0(mode, "never") == 0) {
+      webview->over_scroll_behavior = "none";
+    } else if (g_strcmp0(mode, "ifContentScrolls") == 0) {
+      webview->over_scroll_behavior = "contain";
+    } else {
+      webview->over_scroll_behavior = "";
+    }
+    rebuild_user_scripts(webview);
+    gchar *script = build_overscroll_style_script(webview);
+    evaluate_javascript(webview->web_view, script, method_call);
+    g_free(script);
+    return;
+  }
+
   if (strcmp(method, "completeNavigationRequest") == 0) {
     gint request_id = static_cast<gint>(map_lookup_int(args, "requestId", -1));
     gboolean allow = map_lookup_bool(args, "allow", TRUE);
-    PendingNavigationDecision* pending =
-        static_cast<PendingNavigationDecision*>(
-            g_hash_table_lookup(webview->pending_nav_decisions,
-                                GINT_TO_POINTER(request_id)));
+    PendingNavigationDecision *pending =
+        static_cast<PendingNavigationDecision *>(g_hash_table_lookup(
+            webview->pending_nav_decisions, GINT_TO_POINTER(request_id)));
     if (pending != nullptr) {
       if (allow) {
         if (pending->open_in_place && pending->uri != nullptr) {
@@ -328,20 +773,20 @@ void instance_method_call_cb(FlMethodChannel* channel,
 
   if (strcmp(method, "completeHttpAuthRequest") == 0) {
     gint request_id = static_cast<gint>(map_lookup_int(args, "requestId", -1));
-    WebKitAuthenticationRequest* request = WEBKIT_AUTHENTICATION_REQUEST(
-        g_hash_table_lookup(webview->pending_auth_requests,
-                            GINT_TO_POINTER(request_id)));
+    WebKitAuthenticationRequest *request =
+        WEBKIT_AUTHENTICATION_REQUEST(g_hash_table_lookup(
+            webview->pending_auth_requests, GINT_TO_POINTER(request_id)));
     if (request != nullptr) {
-      const gchar* action = map_lookup_string(args, "action");
+      const gchar *action = map_lookup_string(args, "action");
       if (g_strcmp0(action, "proceed") == 0) {
-        WebKitCredential* credential = webkit_credential_new(
-            map_lookup_string(args, "user") != nullptr
-                ? map_lookup_string(args, "user")
-                : "",
-            map_lookup_string(args, "password") != nullptr
-                ? map_lookup_string(args, "password")
-                : "",
-            WEBKIT_CREDENTIAL_PERSISTENCE_NONE);
+        WebKitCredential *credential =
+            webkit_credential_new(map_lookup_string(args, "user") != nullptr
+                                      ? map_lookup_string(args, "user")
+                                      : "",
+                                  map_lookup_string(args, "password") != nullptr
+                                      ? map_lookup_string(args, "password")
+                                      : "",
+                                  WEBKIT_CREDENTIAL_PERSISTENCE_NONE);
         webkit_authentication_request_authenticate(request, credential);
         webkit_credential_free(credential);
       } else {
@@ -356,9 +801,9 @@ void instance_method_call_cb(FlMethodChannel* channel,
 
   if (strcmp(method, "completePermissionRequest") == 0) {
     gint request_id = static_cast<gint>(map_lookup_int(args, "requestId", -1));
-    WebKitPermissionRequest* request = WEBKIT_PERMISSION_REQUEST(
-        g_hash_table_lookup(webview->pending_permission_requests,
-                            GINT_TO_POINTER(request_id)));
+    WebKitPermissionRequest *request =
+        WEBKIT_PERMISSION_REQUEST(g_hash_table_lookup(
+            webview->pending_permission_requests, GINT_TO_POINTER(request_id)));
     if (request != nullptr) {
       if (map_lookup_bool(args, "grant", FALSE)) {
         webkit_permission_request_allow(request);
@@ -374,25 +819,25 @@ void instance_method_call_cb(FlMethodChannel* channel,
 
   if (strcmp(method, "completeJavaScriptDialog") == 0) {
     gint request_id = static_cast<gint>(map_lookup_int(args, "requestId", -1));
-    WebKitScriptDialog* dialog = static_cast<WebKitScriptDialog*>(
-        g_hash_table_lookup(webview->pending_script_dialogs,
-                            GINT_TO_POINTER(request_id)));
+    WebKitScriptDialog *dialog =
+        static_cast<WebKitScriptDialog *>(g_hash_table_lookup(
+            webview->pending_script_dialogs, GINT_TO_POINTER(request_id)));
     if (dialog != nullptr) {
-      const gchar* action = map_lookup_string(args, "action");
+      const gchar *action = map_lookup_string(args, "action");
       switch (webkit_script_dialog_get_dialog_type(dialog)) {
-        case WEBKIT_SCRIPT_DIALOG_ALERT:
-          break;
-        case WEBKIT_SCRIPT_DIALOG_CONFIRM:
-        case WEBKIT_SCRIPT_DIALOG_BEFORE_UNLOAD_CONFIRM:
-          webkit_script_dialog_confirm_set_confirmed(
-              dialog, g_strcmp0(action, "confirm") == 0);
-          break;
-        case WEBKIT_SCRIPT_DIALOG_PROMPT:
-          if (g_strcmp0(action, "cancel") != 0) {
-            webkit_script_dialog_prompt_set_text(
-                dialog, map_lookup_string(args, "text"));
-          }
-          break;
+      case WEBKIT_SCRIPT_DIALOG_ALERT:
+        break;
+      case WEBKIT_SCRIPT_DIALOG_CONFIRM:
+      case WEBKIT_SCRIPT_DIALOG_BEFORE_UNLOAD_CONFIRM:
+        webkit_script_dialog_confirm_set_confirmed(
+            dialog, g_strcmp0(action, "confirm") == 0);
+        break;
+      case WEBKIT_SCRIPT_DIALOG_PROMPT:
+        if (g_strcmp0(action, "cancel") != 0) {
+          webkit_script_dialog_prompt_set_text(dialog,
+                                               map_lookup_string(args, "text"));
+        }
+        break;
       }
       webkit_script_dialog_close(dialog);
       g_hash_table_remove(webview->pending_script_dialogs,
@@ -404,13 +849,13 @@ void instance_method_call_cb(FlMethodChannel* channel,
 
   if (strcmp(method, "completeSslAuthError") == 0) {
     gint request_id = static_cast<gint>(map_lookup_int(args, "requestId", -1));
-    PendingTlsError* pending = static_cast<PendingTlsError*>(
-        g_hash_table_lookup(webview->pending_tls_errors,
-                            GINT_TO_POINTER(request_id)));
+    PendingTlsError *pending =
+        static_cast<PendingTlsError *>(g_hash_table_lookup(
+            webview->pending_tls_errors, GINT_TO_POINTER(request_id)));
     if (pending != nullptr) {
       if (map_lookup_bool(args, "proceed", FALSE) &&
           pending->certificate != nullptr && pending->host != nullptr) {
-        WebKitWebContext* context =
+        WebKitWebContext *context =
             webkit_web_view_get_context(webview->web_view);
         webkit_web_context_allow_tls_certificate_for_host(
             context, pending->certificate, pending->host);
