@@ -1,7 +1,33 @@
-## 1.1.3
+## 1.2.0
 
-* 补齐 OHOS `NavigationDelegate` 对 HTTP error 与 SSL auth 回调注册的覆盖。
-* 继续保持各 federated 平台包与主包版本号一致。
+* 补齐各平台包对 `webview_flutter_platform_interface` 的覆盖。
+* 新增 Linux WebKitGTK 平台专用 controller 创建参数与运行时设置，覆盖 developer extras、JavaScript 自动开窗、媒体播放、page cache、file URL 访问、文本缩放/字体大小、页面缩放与 DevTools 打开能力。
+* 新增 Web iframe 平台专用创建参数与运行时属性设置，覆盖 `allow`、`sandbox`、`referrerpolicy` 与自定义 iframe 属性，并在 JavaScript mode 切换时保留用户自定义 sandbox。
+* 新增 OHOS ArkWeb 平台专用 controller 创建参数与运行时 WebSettings setter，覆盖 DOM storage、JavaScript 自动开窗、多窗口、viewport/overview、缩放控件、file access、媒体手势策略、support zoom、text zoom 与全屏旋转。
+* 为各平台控制器补齐显式 `loadFileWithParams` override。
+* 当原生平台未提供证书数据时，平台 SSL 认证错误的 certificate 统一返回 `null`。
+* 在转发到平台 Cookie 存储前统一校验通用 WebView Cookie。
+* 避免 OHOS 在导航代理放行子 frame 请求后将其重放为主 frame 加载。
+* HTTP 状态错误回调会在可用时带上平台专用的请求元数据与响应详情。
+* OHOS JavaScript 执行结果改为优先按 JSON 解码，使字符串、数组、对象、布尔值和数字尽可能与其他平台的结构化返回行为一致。
+* OHOS POST `loadRequest` 携带自定义请求头时改为明确失败，避免静默丢弃请求头，并记录 ArkWeb 的底层限制。
+* Windows 遇到无法映射到通用资源类型的 WebView2 权限请求时改用默认决策，避免向应用暴露空资源请求。
+* Linux 权限请求如果不包含任何可识别资源类型，将直接拒绝原生请求，避免向应用暴露空资源请求。
+* 为主包封装补充 `WebViewController`、`NavigationDelegate`、权限请求与 `WebViewWidget` 的转发测试。
+* 为主包和各平台包增加共享 analyzer lint 配置。
+* 将 `examples/platform` 纳入本地验证，并审计其 path 包 lockfile 版本与工作区发布版本一致。
+* 将示例 Android 工程更新到当前 Flutter Gradle 模板形态，app 模块不再直接应用 Kotlin Gradle 插件。
+* 将示例 iOS 与 macOS 工程迁移为仅使用 Swift Package Manager，并移除模板 CocoaPods 集成。
+* 恢复示例应用的 `cupertino_icons` 依赖，确保 Web release 构建包含所引用的图标字体。
+* 补充 Linux 权限请求 grant/deny 分发与 Web user-agent reset 行为的回归测试。
+* 补齐 OHOS 权限请求 grant 覆盖：支持 camera、microphone、MIDI sysex 与 protected media 资源，并安全拒绝未知资源。
+* 移除 Web JavaScript dialog bridge 中触发 Flutter Web wasm dry-run 警告的运行时类型检查，并补充多 WebView dialog bridge 覆盖。
+* 为 Windows 与 Linux 补齐 `loadRequest` 的请求 body/header 处理与 HTTP 状态错误回调覆盖。
+* 为 Windows 与 Linux 增加原生 local storage 清理能力。
+* 补齐 OHOS HTTP error 与 SSL auth 回调桥接。
+* 加强 Web 实现：在浏览器允许的范围内补齐同源 JavaScript 执行、JavaScript channel、console 转发、alert/confirm/prompt 转发、滚动、滚动条、over-scroll、JavaScript mode、zoom 与权限请求覆盖。
+* 新增显式 Web `PlatformSslAuthError` 实现，将可恢复证书决策标记为不支持，而不是让平台接口方法保持缺失。
+* 新增 `WebWebViewWidgetCreationParams`，使 Web 平台与其他 federated 包的平台专用 widget creation params 模式保持一致。
 
 ## 1.1.2
 

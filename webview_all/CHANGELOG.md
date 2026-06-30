@@ -1,7 +1,33 @@
-## 1.1.3
+## 1.2.0
 
-* Complete OHOS `NavigationDelegate` registration coverage for HTTP error and SSL auth callbacks.
-* Keep federated platform package versions aligned with the main package.
+* Complete `webview_flutter_platform_interface` coverage across the federated platform packages.
+* Add Linux WebKitGTK-specific controller creation parameters and runtime settings for developer extras, JavaScript window opening, media playback, page cache, file URL access, text zoom/font sizing, page zoom, and DevTools opening.
+* Add Web iframe-specific creation parameters and runtime attribute setters for `allow`, `sandbox`, `referrerpolicy`, and custom iframe attributes while preserving custom sandbox values across JavaScript mode changes.
+* Add OHOS ArkWeb-specific controller creation parameters and runtime WebSettings setters for DOM storage, JavaScript window opening, multiple windows, viewport/overview mode, zoom controls, file access, media gesture policy, support zoom, text zoom, and full-screen rotation.
+* Add explicit cross-platform `loadFileWithParams` controller overrides.
+* Return `null` for platform SSL auth error certificates when the native platform does not provide certificate data.
+* Validate generic WebView cookies before forwarding them to platform cookie stores.
+* Avoid replaying OHOS sub-frame navigation requests as main-frame loads after navigation delegate approval.
+* Include platform-specific request metadata and response details when reporting HTTP status errors where available.
+* Decode OHOS JavaScript evaluation results through JSON so strings, arrays, objects, booleans, and numbers match the structured result behavior of the other platforms where possible.
+* Make OHOS POST `loadRequest` calls with custom headers fail explicitly instead of silently dropping headers, and document the ArkWeb limitation.
+* Return the default WebView2 permission decision for unsupported Windows permission kinds instead of surfacing empty resource requests to applications.
+* Deny Linux permission requests that contain no recognized resource types instead of surfacing empty resource requests to applications.
+* Add main wrapper forwarding tests for `WebViewController`, `NavigationDelegate`, permission requests, and `WebViewWidget`.
+* Add shared analyzer lint configuration for the main and federated platform packages.
+* Add `examples/platform` to local validation and audit its path package lockfile versions against the workspace release version.
+* Update the example Android project to the current Flutter Gradle template shape so it no longer applies the Kotlin Gradle plugin from the app module.
+* Migrate the example iOS and macOS projects to Swift Package Manager-only integration and remove their template CocoaPods integration.
+* Restore the example app's `cupertino_icons` dependency so Web release builds have all referenced icon fonts.
+* Add regression coverage for Linux permission request grant/deny dispatch and Web user-agent reset behavior.
+* Complete OHOS permission request grant coverage for camera, microphone, MIDI sysex, and protected media resources, with unknown resources denied safely.
+* Remove a Web JavaScript dialog bridge runtime type check that triggered Flutter Web wasm dry-run warnings, and add multi-WebView dialog bridge coverage.
+* Add Windows and Linux request body/header handling and HTTP status error coverage for `loadRequest`.
+* Add Windows and Linux native local storage clearing.
+* Complete OHOS HTTP error and SSL auth callback bridging.
+* Harden the Web implementation with same-origin JavaScript execution, JavaScript channels, console forwarding, alert/confirm/prompt forwarding, scrolling, scrollbars, over-scroll, JavaScript mode, zoom, and permission request coverage where browsers allow it.
+* Add an explicit Web `PlatformSslAuthError` implementation that reports unsupported recoverable certificate decisions instead of leaving the platform interface methods missing.
+* Add `WebWebViewWidgetCreationParams` so the Web platform matches the platform-specific widget creation-params pattern used by other federated packages.
 
 ## 1.1.2
 
