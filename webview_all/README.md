@@ -15,7 +15,6 @@ A WebView component that supports all Flutter platforms and implements the
 |OHOS|API 12+|[ArkWeb](https://developer.huawei.com/consumer/en/doc/harmonyos-references-V5/ts-basic-components-web-V5)|
 |Web|Any|[js-interop](https://dart.dev/interop/js-interop)|
 
-
 ## Quick Start
 
 1. Instantiate a `WebViewController`:
@@ -109,7 +108,7 @@ If you want users to use Material Components when interacting with input control
 
 ### Set Custom Request Headers for POST Requests
 
-Currently, when making POST requests through `WebViewController.loadRequest` on Android, setting custom request headers is not yet supported. If you need this capability, one workaround is to make the request manually and then load the response content through `loadHtmlString`.
+Currently, when making POST requests through `WebViewController.loadRequest` on Android and OHOS, setting custom request headers is not yet supported. If you need this capability, one workaround is to make the request manually and then load the response content through `loadHtmlString`.
 
 ### Linux Setup
 
@@ -161,20 +160,3 @@ Replace it with:
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
 ```
-
-### Known Limitations
-
-`webview_all` follows the `webview_flutter` public API, but some platform
-engines do not expose equivalent native capabilities.
-
-* **Web** runs in a browser `iframe`; arbitrary JavaScript execution,
-  JavaScript channels, JavaScript dialog interception, permission request
-  interception, and some request flows are limited by browser security policy
-  and CORS.
-* **macOS** uses the public `WKWebView` API. A fully transparent WebView
-  background is not exposed as a stable public App Store-safe API by WebKit.
-* **Windows** uses WebView2. JavaScript dialog callbacks and scrollbar
-  visibility toggles are not exposed by this plugin yet.
-* **OHOS** uses ArkWeb. HTTP status error and recoverable SSL auth callbacks
-  are safe to register through the common API, but the current ArkWeb bridge
-  does not emit equivalent native events yet.
