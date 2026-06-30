@@ -1,4 +1,32 @@
+import 'dart:async';
+
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
+
+class LinuxWebResourceRequest extends WebResourceRequest {
+  const LinuxWebResourceRequest({
+    required super.uri,
+    this.method,
+    this.headers = const <String, String>{},
+    this.isForMainFrame,
+  });
+
+  final String? method;
+
+  final Map<String, String> headers;
+
+  final bool? isForMainFrame;
+}
+
+class LinuxWebResourceResponse extends WebResourceResponse {
+  const LinuxWebResourceResponse({
+    required super.uri,
+    required super.statusCode,
+    required super.headers,
+    this.mimeType,
+  });
+
+  final String? mimeType;
+}
 
 class LinuxPlatformWebViewPermissionRequest
     extends PlatformWebViewPermissionRequest {
@@ -11,12 +39,25 @@ class LinuxPlatformWebViewPermissionRequest
 
   final Future<void> Function() _onGrant;
   final Future<void> Function() _onDeny;
+  final Completer<void> _completion = Completer<void>();
+
+  Future<void> _complete(Future<void> Function() action) {
+    if (_completion.isCompleted) {
+      return Future<void>.value();
+    }
+    _completion.complete();
+    return action();
+  }
 
   @override
-  Future<void> grant() => _onGrant();
+  Future<void> grant() {
+    return _complete(_onGrant);
+  }
 
   @override
-  Future<void> deny() => _onDeny();
+  Future<void> deny() {
+    return _complete(_onDeny);
+  }
 }
 
 class LinuxPlatformSslAuthError extends PlatformSslAuthError {
@@ -26,16 +67,29 @@ class LinuxPlatformSslAuthError extends PlatformSslAuthError {
     required Future<void> Function() onCancel,
   }) : _onProceed = onProceed,
        _onCancel = onCancel,
-       super(certificate: const X509Certificate(), description: description);
+       super(certificate: null, description: description);
 
   final Future<void> Function() _onProceed;
   final Future<void> Function() _onCancel;
+  final Completer<void> _completion = Completer<void>();
+
+  Future<void> _complete(Future<void> Function() action) {
+    if (_completion.isCompleted) {
+      return Future<void>.value();
+    }
+    _completion.complete();
+    return action();
+  }
 
   @override
-  Future<void> proceed() => _onProceed();
+  Future<void> proceed() {
+    return _complete(_onProceed);
+  }
 
   @override
-  Future<void> cancel() => _onCancel();
+  Future<void> cancel() {
+    return _complete(_onCancel);
+  }
 }
 
 class LinuxWebResourceError extends WebResourceError {
