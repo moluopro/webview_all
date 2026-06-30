@@ -70,5 +70,22 @@ void main() {
         );
       },
     );
+
+    test(
+      'rejects invalid cookie domains before writing to document.cookie',
+      () async {
+        await expectLater(
+          () => manager.setCookie(
+            WebViewCookie(
+              name: 'valid_name',
+              value: 'value',
+              domain: 'example.com;bad',
+              path: '/',
+            ),
+          ),
+          throwsA(isA<ArgumentError>()),
+        );
+      },
+    );
   });
 }
