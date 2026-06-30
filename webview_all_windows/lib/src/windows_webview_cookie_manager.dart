@@ -44,11 +44,11 @@ class WindowsWebViewCookieManager extends PlatformWebViewCookieManager {
 
   @override
   Future<void> setCookie(WebViewCookie cookie) async {
-    if (!_isValidPath(cookie.path)) {
-      throw ArgumentError(
-        'The path property for the provided cookie was not given a legal value.',
-      );
-    }
+    _validateCookieFields(
+      name: cookie.name,
+      domain: cookie.domain,
+      path: cookie.path,
+    );
 
     await setWindowsCookie(
       WindowsWebViewCookie(
@@ -77,11 +77,11 @@ class WindowsWebViewCookieManager extends PlatformWebViewCookieManager {
 
   /// Sets a full Windows WebView2 cookie.
   Future<void> setWindowsCookie(WindowsWebViewCookie cookie) async {
-    if (!_isValidPath(cookie.path)) {
-      throw ArgumentError(
-        'The path property for the provided cookie was not given a legal value.',
-      );
-    }
+    _validateCookieFields(
+      name: cookie.name,
+      domain: cookie.domain,
+      path: cookie.path,
+    );
 
     final controller = native_webview.WebviewController();
     await controller.initialize();
@@ -150,6 +150,57 @@ class WindowsWebViewCookieManager extends PlatformWebViewCookieManager {
       await controller.deleteCookiesWithNameDomainAndPath(name, domain, path);
     } finally {
       await controller.dispose();
+    }
+  }
+
+  void _validateCookieFields({
+    required String name,
+    required String domain,
+    required String path,
+  }) {
+    _validateCookieName(name);
+    _validateCookieAttribute('domain', domain);
+    _validateCookieAttribute('path', path);
+
+    if (path.isNotEmpty && !path.startsWith('/')) {
+      throw ArgumentError.value(
+        path,
+        'cookie.path',
+        'Cookie path must start with "/".',
+      );
+    }
+    if (!_isValidPath(path)) {
+      throw ArgumentError(
+        'The path property for the provided cookie was not given a legal value.',
+      );
+    }
+  }
+
+  void _validateCookieName(String name) {
+    if (name.isEmpty) {
+      throw ArgumentError.value(name, 'cookie.name', 'Cookie name is empty.');
+    }
+
+    if (RegExp(r'[\x00-\x20\x7F()<>@,;:\\"/\[\]?={}]+').hasMatch(name)) {
+      throw ArgumentError.value(
+        name,
+        'cookie.name',
+        'Cookie name contains characters rejected by browsers.',
+      );
+    }
+  }
+
+  void _validateCookieAttribute(String field, String value) {
+    if (value.isEmpty) {
+      return;
+    }
+
+    if (RegExp(r'[\x00-\x1F\x7F;]').hasMatch(value)) {
+      throw ArgumentError.value(
+        value,
+        'cookie.$field',
+        'Cookie $field contains characters rejected by browsers.',
+      );
     }
   }
 
