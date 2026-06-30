@@ -1,7 +1,8 @@
 import { BinaryMessenger } from '@ohos/flutter_ohos/src/main/ets/plugin/common/BinaryMessenger';
 import { HttpAuthHandlerFlutterApiImpl } from './HttpAuthHandlerFlutterApiImpl';
 import { InstanceManager } from './InstanceManager';
-import { HttpAuthHandler, OhosWebViewCallbackApiChannel, Reply, emptyReply } from './OhosWebViewCallbackApiChannel';
+import { HttpAuthHandler, OhosWebViewCallbackApiChannel, Reply, SslAuthHandler, emptyReply } from './OhosWebViewCallbackApiChannel';
+import { SslAuthHandlerFlutterApiImpl } from './SslAuthHandlerFlutterApiImpl';
 import { WebViewClient } from './WebViewClientHostApiImpl';
 import { WebViewFlutterApiImpl } from './WebViewFlutterApiImpl';
 import { WebViewPlatformView } from './WebViewPlatformView';
@@ -54,6 +55,19 @@ export class WebViewClientFlutterApiImpl {
       .set('error', WebViewClientFlutterApiImpl.createWebResourceErrorData(error)), callback);
   }
 
+  onReceivedHttpErrorImpl(
+    webViewClient: WebViewClient,
+    webView: WebViewPlatformView,
+    request: WebResourceRequest,
+    response: WebResourceResponse,
+    callback?: Reply<void>
+  ): void {
+    this.webViewFlutterApi.create(webView, emptyReply<void>());
+    this.callbackApi.invoke('WebViewClient.onReceivedHttpError', this.baseArgs(webViewClient, webView)
+      .set('request', WebViewClientFlutterApiImpl.createWebResourceRequestData(request))
+      .set('response', WebViewClientFlutterApiImpl.createWebResourceResponseData(response)), callback);
+  }
+
   requestLoadingImpl(
     webViewClient: WebViewClient,
     webView: WebViewPlatformView,
@@ -95,6 +109,25 @@ export class WebViewClientFlutterApiImpl {
       .set('realm', realm), callback);
   }
 
+  onReceivedSslAuthErrorImpl(
+    webViewClient: WebViewClient,
+    webView: WebViewPlatformView,
+    sslAuthHandler: SslAuthHandler,
+    url: string,
+    errorCode: number,
+    description: string,
+    callback?: Reply<void>
+  ): void {
+    new SslAuthHandlerFlutterApiImpl(this.binaryMessenger, this.instanceManager)
+      .create(sslAuthHandler, emptyReply<void>());
+
+    this.callbackApi.invoke('WebViewClient.onReceivedSslAuthError', this.baseArgs(webViewClient, webView)
+      .set('sslAuthHandlerInstanceId', this.instanceManager.getIdentifier(sslAuthHandler))
+      .set('url', url)
+      .set('errorCode', errorCode)
+      .set('description', description), callback);
+  }
+
   private baseArgs(webViewClient: WebViewClient, webView: WebViewPlatformView): Map<string, ESObject> {
     return new Map<string, ESObject>()
       .set('instanceId', this.getIdentifierForClient(webViewClient))
@@ -113,6 +146,14 @@ export class WebViewClientFlutterApiImpl {
     return new Map<string, ESObject>()
       .set('errorCode', error.getErrorCode())
       .set('description', error.getErrorInfo());
+  }
+
+  static createWebResourceResponseData(response: WebResourceResponse): Map<string, ESObject> {
+    return new Map<string, ESObject>()
+      .set('statusCode', response.getResponseCode())
+      .set('responseHeaders', WebViewClientFlutterApiImpl.toWebHeadersMap(response.getResponseHeader()))
+      .set('reasonPhrase', response.getReasonMessage())
+      .set('mimeType', response.getResponseMimeType());
   }
 
   static createWebResourceRequestData(request: WebResourceRequest): Map<string, ESObject> {
