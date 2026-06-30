@@ -69,6 +69,45 @@ class LinuxWebViewController extends PlatformWebViewController {
       _handleEvent,
       onError: (_) {},
     );
+    await _applyCreationParams();
+  }
+
+  LinuxWebViewControllerCreationParams get _linuxParams =>
+      params as LinuxWebViewControllerCreationParams;
+
+  Future<void> _applyCreationParams() async {
+    final Map<String, Object?> settings = <String, Object?>{
+      if (_linuxParams.developerExtrasEnabled case final bool value)
+        'developerExtrasEnabled': value,
+      if (_linuxParams.javascriptCanOpenWindowsAutomatically
+          case final bool value)
+        'javascriptCanOpenWindowsAutomatically': value,
+      if (_linuxParams.mediaPlaybackRequiresUserGesture case final bool value)
+        'mediaPlaybackRequiresUserGesture': value,
+      if (_linuxParams.mediaPlaybackAllowsInline case final bool value)
+        'mediaPlaybackAllowsInline': value,
+      if (_linuxParams.pageCacheEnabled case final bool value)
+        'pageCacheEnabled': value,
+      if (_linuxParams.allowFileAccessFromFileUrls case final bool value)
+        'allowFileAccessFromFileUrls': value,
+      if (_linuxParams.allowUniversalAccessFromFileUrls case final bool value)
+        'allowUniversalAccessFromFileUrls': value,
+      if (_linuxParams.zoomTextOnly case final bool value)
+        'zoomTextOnly': value,
+      if (_linuxParams.defaultFontSize case final int value)
+        'defaultFontSize': value,
+      if (_linuxParams.defaultMonospaceFontSize case final int value)
+        'defaultMonospaceFontSize': value,
+      if (_linuxParams.minimumFontSize case final int value)
+        'minimumFontSize': value,
+      if (_linuxParams.zoomFactor case final double value) 'zoomFactor': value,
+    };
+
+    if (settings.isEmpty) {
+      return;
+    }
+
+    await _channel!.invokeMethod<void>('applySettings', settings);
   }
 
   Future<void> _ensureReady() async {
@@ -102,6 +141,11 @@ class LinuxWebViewController extends PlatformWebViewController {
   }
 
   @override
+  Future<void> loadFileWithParams(LoadFileParams params) {
+    return loadFile(params.absoluteFilePath);
+  }
+
+  @override
   Future<void> loadFlutterAsset(String key) async {
     final String assetPath = _resolveFlutterAssetPath(key);
     final File file = File(assetPath);
@@ -128,17 +172,11 @@ class LinuxWebViewController extends PlatformWebViewController {
       );
     }
 
-    if (params.method != LoadRequestMethod.get ||
-        (params.body != null && params.body!.isNotEmpty)) {
-      throw UnsupportedError(
-        'WebKitGTK navigation requests support URLs and custom headers here, '
-        'but do not expose a stable API for arbitrary HTTP methods or bodies.',
-      );
-    }
-
     await _invoke<void>('loadRequest', <String, Object?>{
       'url': params.uri.toString(),
+      'method': params.method.serialize(),
       'headers': params.headers,
+      'body': params.body,
     });
   }
 
@@ -364,6 +402,7 @@ class LinuxWebViewController extends PlatformWebViewController {
     onJavaScriptAlertDialog,
   ) async {
     _onJavaScriptAlertDialog = onJavaScriptAlertDialog;
+    await _updateJavaScriptDialogCallbacksEnabled();
   }
 
   @override
@@ -372,6 +411,7 @@ class LinuxWebViewController extends PlatformWebViewController {
     onJavaScriptConfirmDialog,
   ) async {
     _onJavaScriptConfirmDialog = onJavaScriptConfirmDialog;
+    await _updateJavaScriptDialogCallbacksEnabled();
   }
 
   @override
@@ -380,16 +420,29 @@ class LinuxWebViewController extends PlatformWebViewController {
     onJavaScriptTextInputDialog,
   ) async {
     _onJavaScriptTextInputDialog = onJavaScriptTextInputDialog;
+    await _updateJavaScriptDialogCallbacksEnabled();
+  }
+
+  Future<void> _updateJavaScriptDialogCallbacksEnabled() {
+    return _invoke<void>(
+      'setJavaScriptDialogCallbacksEnabled',
+      <String, Object?>{
+        'alert': _onJavaScriptAlertDialog != null,
+        'confirm': _onJavaScriptConfirmDialog != null,
+        'prompt': _onJavaScriptTextInputDialog != null,
+      },
+    );
   }
 
   @override
   Future<void> setOverScrollMode(WebViewOverScrollMode mode) async {
-    if (mode == WebViewOverScrollMode.never) {
-      await runJavaScript('''
-        document.documentElement.style.overscrollBehavior = 'none';
-        document.body.style.overscrollBehavior = 'none';
-      ''');
-    }
+    await _invoke<void>('setOverScrollMode', <String, Object?>{
+      'mode': switch (mode) {
+        WebViewOverScrollMode.always => 'always',
+        WebViewOverScrollMode.ifContentScrolls => 'ifContentScrolls',
+        WebViewOverScrollMode.never => 'never',
+      },
+    });
   }
 
   Future<void> setFrame(Rect rect, {required bool visible}) {
@@ -399,6 +452,96 @@ class LinuxWebViewController extends PlatformWebViewController {
       'width': rect.width,
       'height': rect.height,
       'visible': visible,
+    });
+  }
+
+  /// Enables WebKitGTK developer extras for this WebView.
+  Future<void> setDeveloperExtrasEnabled(bool enabled) {
+    return _invoke<void>('setDeveloperExtrasEnabled', <String, Object?>{
+      'enabled': enabled,
+    });
+  }
+
+  /// Opens the WebKitGTK web inspector for this WebView.
+  Future<void> openDevTools() => _invoke<void>('openDevTools');
+
+  /// Sets whether JavaScript may open windows automatically.
+  Future<void> setJavaScriptCanOpenWindowsAutomatically(bool enabled) {
+    return _invoke<void>(
+      'setJavaScriptCanOpenWindowsAutomatically',
+      <String, Object?>{'enabled': enabled},
+    );
+  }
+
+  /// Sets whether media playback requires a user gesture.
+  Future<void> setMediaPlaybackRequiresUserGesture(bool require) {
+    return _invoke<void>(
+      'setMediaPlaybackRequiresUserGesture',
+      <String, Object?>{'require': require},
+    );
+  }
+
+  /// Sets whether inline media playback is allowed.
+  Future<void> setMediaPlaybackAllowsInline(bool allow) {
+    return _invoke<void>('setMediaPlaybackAllowsInline', <String, Object?>{
+      'allow': allow,
+    });
+  }
+
+  /// Enables or disables WebKitGTK's page cache.
+  Future<void> setPageCacheEnabled(bool enabled) {
+    return _invoke<void>('setPageCacheEnabled', <String, Object?>{
+      'enabled': enabled,
+    });
+  }
+
+  /// Sets whether file URLs can read other file URLs.
+  Future<void> setAllowFileAccessFromFileUrls(bool allow) {
+    return _invoke<void>('setAllowFileAccessFromFileUrls', <String, Object?>{
+      'allow': allow,
+    });
+  }
+
+  /// Sets whether file URLs can access all origins.
+  Future<void> setAllowUniversalAccessFromFileUrls(bool allow) {
+    return _invoke<void>(
+      'setAllowUniversalAccessFromFileUrls',
+      <String, Object?>{'allow': allow},
+    );
+  }
+
+  /// Sets whether zooming affects only text.
+  Future<void> setZoomTextOnly(bool enabled) {
+    return _invoke<void>('setZoomTextOnly', <String, Object?>{
+      'enabled': enabled,
+    });
+  }
+
+  /// Sets the default proportional font size in CSS pixels.
+  Future<void> setDefaultFontSize(int fontSize) {
+    return _invoke<void>('setDefaultFontSize', <String, Object?>{
+      'fontSize': fontSize,
+    });
+  }
+
+  /// Sets the default monospace font size in CSS pixels.
+  Future<void> setDefaultMonospaceFontSize(int fontSize) {
+    return _invoke<void>('setDefaultMonospaceFontSize', <String, Object?>{
+      'fontSize': fontSize,
+    });
+  }
+
+  /// Sets the minimum font size in CSS pixels.
+  Future<void> setMinimumFontSize(int fontSize) {
+    return _invoke<void>('setMinimumFontSize', <String, Object?>{
+      'fontSize': fontSize,
+    });
+  }
+
+  /// Sets the page zoom factor.
+  Future<void> setZoomFactor(double zoomFactor) {
+    return _invoke<void>('setZoomFactor', <String, Object?>{
+      'zoomFactor': zoomFactor,
     });
   }
 
