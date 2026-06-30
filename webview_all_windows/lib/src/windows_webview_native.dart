@@ -34,12 +34,54 @@ class WebviewDownloadEvent {
   );
 }
 
+class WebviewHttpResponseError {
+  final String url;
+  final String? method;
+  final Map<String, String> requestHeaders;
+  final int statusCode;
+  final Map<String, String> responseHeaders;
+  final String? reasonPhrase;
+
+  const WebviewHttpResponseError(
+    this.url,
+    this.statusCode, {
+    this.method,
+    this.requestHeaders = const <String, String>{},
+    this.responseHeaders = const <String, String>{},
+    this.reasonPhrase,
+  });
+}
+
+Map<String, String> _stringMapFromEvent(Object? value) {
+  final Map<String, String> result = <String, String>{};
+  if (value case final Map<dynamic, dynamic> rawHeaders) {
+    for (final MapEntry<dynamic, dynamic> header in rawHeaders.entries) {
+      result['${header.key}'] = '${header.value}';
+    }
+  }
+  return result;
+}
+
 typedef PermissionRequestedDelegate =
     FutureOr<WebviewPermissionDecision> Function(
       String url,
       WebviewPermissionKind permissionKind,
       bool isUserInitiated,
     );
+
+typedef JavaScriptDialogRequestedDelegate =
+    FutureOr<Map<String, Object?>?> Function(
+      String dialogType,
+      String url,
+      String message,
+      String? defaultText,
+    );
+
+typedef HttpAuthRequestedDelegate =
+    FutureOr<Map<String, Object?>?> Function(String url, String challenge);
+
+typedef SslAuthErrorRequestedDelegate =
+    FutureOr<Map<String, Object?>?> Function(String url, int errorStatus);
 
 typedef ScriptID = String;
 
@@ -111,11 +153,32 @@ class WebviewController extends ValueNotifier<WebviewValue> {
   Future<void> get ready => _creatingCompleter.future;
 
   PermissionRequestedDelegate? _permissionRequested;
+  JavaScriptDialogRequestedDelegate? _javaScriptDialogRequested;
+  HttpAuthRequestedDelegate? _httpAuthRequested;
+  SslAuthErrorRequestedDelegate? _sslAuthErrorRequested;
 
   void setPermissionRequestedDelegate(
     PermissionRequestedDelegate? permissionRequested,
   ) {
     _permissionRequested = permissionRequested;
+  }
+
+  void setJavaScriptDialogRequestedDelegate(
+    JavaScriptDialogRequestedDelegate? javaScriptDialogRequested,
+  ) {
+    _javaScriptDialogRequested = javaScriptDialogRequested;
+  }
+
+  void setHttpAuthRequestedDelegate(
+    HttpAuthRequestedDelegate? httpAuthRequested,
+  ) {
+    _httpAuthRequested = httpAuthRequested;
+  }
+
+  void setSslAuthErrorRequestedDelegate(
+    SslAuthErrorRequestedDelegate? sslAuthErrorRequested,
+  ) {
+    _sslAuthErrorRequested = sslAuthErrorRequested;
   }
 
   late MethodChannel _methodChannel;
@@ -137,6 +200,10 @@ class WebviewController extends ValueNotifier<WebviewValue> {
   final StreamController<WebErrorStatus> _onLoadErrorStreamController =
       StreamController<WebErrorStatus>();
 
+  final StreamController<WebviewHttpResponseError>
+  _httpResponseErrorStreamController =
+      StreamController<WebviewHttpResponseError>();
+
   /// A stream reflecting the current loading state.
   Stream<LoadingState> get loadingState => _loadingStateStreamController.stream;
 
@@ -145,6 +212,10 @@ class WebviewController extends ValueNotifier<WebviewValue> {
 
   /// A stream reflecting the navigation error when navigation completed with an error.
   Stream<WebErrorStatus> get onLoadError => _onLoadErrorStreamController.stream;
+
+  /// A stream reflecting HTTP response status errors.
+  Stream<WebviewHttpResponseError> get httpResponseError =>
+      _httpResponseErrorStreamController.stream;
 
   final StreamController<HistoryChanged> _historyChangedStreamController =
       StreamController<HistoryChanged>();
@@ -214,6 +285,21 @@ class WebviewController extends ValueNotifier<WebviewValue> {
             final value = WebErrorStatus.values[map['value']];
             _onLoadErrorStreamController.add(value);
             break;
+          case 'httpError':
+            final value =
+                map['value'] as Map<dynamic, dynamic>? ??
+                const <dynamic, dynamic>{};
+            _httpResponseErrorStreamController.add(
+              WebviewHttpResponseError(
+                '${value['url'] ?? ''}',
+                (value['statusCode'] as num?)?.toInt() ?? 0,
+                method: value['method'] as String?,
+                requestHeaders: _stringMapFromEvent(value['requestHeaders']),
+                responseHeaders: _stringMapFromEvent(value['responseHeaders']),
+                reasonPhrase: value['reasonPhrase'] as String?,
+              ),
+            );
+            break;
           case 'loadingStateChanged':
             final value = LoadingState.values[map['value']];
             _loadingStateStreamController.add(value);
@@ -264,6 +350,17 @@ class WebviewController extends ValueNotifier<WebviewValue> {
             call.arguments as Map<dynamic, dynamic>,
           );
         }
+        if (call.method == 'javaScriptDialogRequested') {
+          return _onJavaScriptDialogRequested(
+            call.arguments as Map<dynamic, dynamic>,
+          );
+        }
+        if (call.method == 'httpAuthRequested') {
+          return _onHttpAuthRequested(call.arguments as Map<dynamic, dynamic>);
+        }
+        if (call.method == 'sslAuthError') {
+          return _onSslAuthError(call.arguments as Map<dynamic, dynamic>);
+        }
 
         throw MissingPluginException('Unknown method ${call.method}');
       });
@@ -287,7 +384,11 @@ class WebviewController extends ValueNotifier<WebviewValue> {
     final isUserInitiated = args['isUserInitiated'] as bool?;
 
     if (url != null && permissionKindIndex != null && isUserInitiated != null) {
-      final permissionKind = WebviewPermissionKind.values[permissionKindIndex];
+      final WebviewPermissionKind? permissionKind =
+          _webviewPermissionKindFromIndex(permissionKindIndex);
+      if (permissionKind == null) {
+        return null;
+      }
       final decision = await _permissionRequested!(
         url,
         permissionKind,
@@ -305,6 +406,65 @@ class WebviewController extends ValueNotifier<WebviewValue> {
     }
 
     return null;
+  }
+
+  WebviewPermissionKind? _webviewPermissionKindFromIndex(int index) {
+    if (index < 0 || index >= WebviewPermissionKind.values.length) {
+      return null;
+    }
+    return WebviewPermissionKind.values[index];
+  }
+
+  Future<Map<String, Object?>?> _onJavaScriptDialogRequested(
+    Map<dynamic, dynamic> args,
+  ) async {
+    final callback = _javaScriptDialogRequested;
+    if (callback == null) {
+      return null;
+    }
+
+    final dialogType = args['dialogType'] as String?;
+    final url = args['url'] as String?;
+    final message = args['message'] as String?;
+    if (dialogType == null || url == null || message == null) {
+      return null;
+    }
+
+    return callback(dialogType, url, message, args['defaultText'] as String?);
+  }
+
+  Future<Map<String, Object?>?> _onHttpAuthRequested(
+    Map<dynamic, dynamic> args,
+  ) async {
+    final callback = _httpAuthRequested;
+    if (callback == null) {
+      return null;
+    }
+
+    final url = args['url'] as String?;
+    final challenge = args['challenge'] as String?;
+    if (url == null || challenge == null) {
+      return null;
+    }
+
+    return callback(url, challenge);
+  }
+
+  Future<Map<String, Object?>?> _onSslAuthError(
+    Map<dynamic, dynamic> args,
+  ) async {
+    final callback = _sslAuthErrorRequested;
+    if (callback == null) {
+      return null;
+    }
+
+    final url = args['url'] as String?;
+    final errorStatus = args['errorStatus'] as int?;
+    if (url == null || errorStatus == null) {
+      return null;
+    }
+
+    return callback(url, errorStatus);
   }
 
   @override
@@ -325,6 +485,28 @@ class WebviewController extends ValueNotifier<WebviewValue> {
     }
     assert(value.isInitialized);
     return _hostApi.loadUrl(_textureId, url);
+  }
+
+  /// Loads a request with the supplied HTTP method, headers, and optional body.
+  Future<void> loadRequest({
+    required String url,
+    required String method,
+    required String headers,
+    Uint8List? body,
+  }) async {
+    if (_isDisposed) {
+      return;
+    }
+    assert(value.isInitialized);
+    return _hostApi.loadRequest(
+      _textureId,
+      WindowsLoadRequestData(
+        url: url,
+        method: method,
+        headers: headers,
+        body: body,
+      ),
+    );
   }
 
   /// Loads a document from the given string.
@@ -425,12 +607,32 @@ class WebviewController extends ValueNotifier<WebviewValue> {
   }
 
   /// Sets the user agent value.
-  Future<void> setUserAgent(String userAgent) async {
+  ///
+  /// Passing null resets the WebView to the WebView2 default user agent.
+  Future<void> setUserAgent(String? userAgent) async {
     if (_isDisposed) {
       return;
     }
     assert(value.isInitialized);
     return _hostApi.setUserAgent(_textureId, userAgent);
+  }
+
+  /// Returns the current user agent value from WebView2.
+  Future<String?> getUserAgent() async {
+    if (_isDisposed) {
+      return null;
+    }
+    assert(value.isInitialized);
+    return _hostApi.getUserAgent(_textureId);
+  }
+
+  /// Sets whether JavaScript execution is enabled.
+  Future<void> setJavaScriptEnabled(bool enabled) async {
+    if (_isDisposed) {
+      return;
+    }
+    assert(value.isInitialized);
+    return _hostApi.setJavaScriptEnabled(_textureId, enabled);
   }
 
   /// Clears browser cookies.
@@ -568,6 +770,15 @@ class WebviewController extends ValueNotifier<WebviewValue> {
     return _hostApi.clearCache(_textureId);
   }
 
+  /// Clears DOM storage for the current WebView profile.
+  Future<void> clearLocalStorage() async {
+    if (_isDisposed) {
+      return;
+    }
+    assert(value.isInitialized);
+    return _hostApi.clearLocalStorage(_textureId);
+  }
+
   /// Toggles ignoring cache for each request. If true, cache will not be used.
   Future<void> setCacheDisabled(bool disabled) async {
     if (_isDisposed) {
@@ -602,6 +813,15 @@ class WebviewController extends ValueNotifier<WebviewValue> {
     );
   }
 
+  /// Sets whether user-initiated zooming is enabled.
+  Future<void> setZoomControlEnabled(bool enabled) async {
+    if (_isDisposed) {
+      return;
+    }
+    assert(value.isInitialized);
+    return _hostApi.setZoomControlEnabled(_textureId, enabled);
+  }
+
   /// Sets the zoom factor.
   Future<void> setZoomFactor(double zoomFactor) async {
     if (_isDisposed) {
@@ -620,6 +840,25 @@ class WebviewController extends ValueNotifier<WebviewValue> {
     }
     assert(value.isInitialized);
     return _hostApi.setPopupWindowPolicy(_textureId, popupPolicy.index);
+  }
+
+  /// Enables native JavaScript dialog interception for the selected dialog
+  /// kinds.
+  Future<void> setJavaScriptDialogCallbacksEnabled({
+    required bool alert,
+    required bool confirm,
+    required bool prompt,
+  }) async {
+    if (_isDisposed) {
+      return;
+    }
+    assert(value.isInitialized);
+    return _hostApi.setJavaScriptDialogCallbacksEnabled(
+      _textureId,
+      alert,
+      confirm,
+      prompt,
+    );
   }
 
   /// Suspends the web view.
@@ -762,7 +1001,6 @@ class WebviewController extends ValueNotifier<WebviewValue> {
 
 class Webview extends StatefulWidget {
   final WebviewController controller;
-  final PermissionRequestedDelegate? permissionRequested;
   final double? width;
   final double? height;
 
@@ -782,7 +1020,6 @@ class Webview extends StatefulWidget {
     this.controller, {
     this.width,
     this.height,
-    this.permissionRequested,
     this.scaleFactor,
     this.filterQuality = FilterQuality.none,
   });
@@ -806,10 +1043,6 @@ class _WebviewState extends State<Webview> {
   @override
   void initState() {
     super.initState();
-
-    // TODO: Refactor callback and event handling and
-    // remove this line
-    _controller._permissionRequested = widget.permissionRequested;
 
     // Report initial surface size
     WidgetsBinding.instance.addPostFrameCallback((_) => _reportSurfaceSize());
