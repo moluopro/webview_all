@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
@@ -122,10 +123,21 @@ class WindowsWebViewController extends PlatformWebViewController {
   String? _userAgent;
   bool _canGoBack = false;
   bool _canGoForward = false;
+  bool _verticalScrollBarEnabled = true;
+  bool _horizontalScrollBarEnabled = true;
+  WebViewOverScrollMode _overScrollMode = WebViewOverScrollMode.always;
   bool _scrollBridgeInstalled = false;
   String? _consoleBridgeScriptId;
+  String? _scrollBarStyleScriptId;
+  String? _overScrollStyleScriptId;
 
   void Function(JavaScriptConsoleMessage)? _onConsoleMessageCallback;
+  Future<void> Function(JavaScriptAlertDialogRequest)?
+  _onJavaScriptAlertDialogCallback;
+  Future<bool> Function(JavaScriptConfirmDialogRequest)?
+  _onJavaScriptConfirmDialogCallback;
+  Future<String> Function(JavaScriptTextInputDialogRequest)?
+  _onJavaScriptTextInputDialogCallback;
   void Function(ScrollPositionChange)? _onScrollPositionChangeCallback;
 
   WindowsWebViewControllerCreationParams get _windowsParams =>
@@ -156,6 +168,11 @@ class WindowsWebViewController extends PlatformWebViewController {
 
   Future<void> _initialize() async {
     await _webviewController.initialize();
+    _webviewController.setJavaScriptDialogRequestedDelegate(
+      _handleJavaScriptDialogRequested,
+    );
+    _webviewController.setHttpAuthRequestedDelegate(_handleHttpAuthRequested);
+    _webviewController.setSslAuthErrorRequestedDelegate(_handleSslAuthError);
     await _webviewController.setPopupWindowPolicy(
       switch (_windowsParams.popupWindowPolicy) {
         WindowsPopupWindowPolicy.allow =>
@@ -180,6 +197,7 @@ class WindowsWebViewController extends PlatformWebViewController {
       }),
       _webviewController.loadingState.listen(_handleLoadingStateChanged),
       _webviewController.onLoadError.listen(_handleLoadError),
+      _webviewController.httpResponseError.listen(_handleHttpResponseError),
       _webviewController.webMessage.listen(_handleWebMessage),
     ]);
   }
@@ -216,6 +234,28 @@ class WindowsWebViewController extends PlatformWebViewController {
   void _handleLoadError(native_types.WebErrorStatus status) {
     _currentNavigationDelegate?._onWebResourceError?.call(
       WindowsWebResourceError(status, url: _currentUrl, isForMainFrame: true),
+    );
+  }
+
+  void _handleHttpResponseError(native_webview.WebviewHttpResponseError error) {
+    final Uri? uri = Uri.tryParse(error.url);
+    _currentNavigationDelegate?._onHttpError?.call(
+      HttpResponseError(
+        request: uri == null
+            ? null
+            : WindowsWebResourceRequest._(
+                uri: uri,
+                method: error.method,
+                headers: error.requestHeaders,
+              ),
+        response: WindowsWebResourceResponse._(
+          uri: uri,
+          statusCode: error.statusCode,
+          headers: error.responseHeaders,
+          reasonPhrase: error.reasonPhrase,
+          mimeType: _mimeTypeFromResponseHeaders(error.responseHeaders),
+        ),
+      ),
     );
   }
 
@@ -264,6 +304,166 @@ class WindowsWebViewController extends PlatformWebViewController {
     }
   }
 
+  Future<Map<String, Object?>?> _handleJavaScriptDialogRequested(
+    String dialogType,
+    String url,
+    String message,
+    String? defaultText,
+  ) async {
+    switch (dialogType) {
+      case 'alert':
+        final callback = _onJavaScriptAlertDialogCallback;
+        if (callback == null) {
+          return null;
+        }
+        await callback(
+          JavaScriptAlertDialogRequest(message: message, url: url),
+        );
+        return <String, Object?>{'action': 'accept'};
+      case 'confirm':
+        final callback = _onJavaScriptConfirmDialogCallback;
+        if (callback == null) {
+          return null;
+        }
+        final bool confirmed = await callback(
+          JavaScriptConfirmDialogRequest(message: message, url: url),
+        );
+        return <String, Object?>{'action': confirmed ? 'confirm' : 'cancel'};
+      case 'prompt':
+        final callback = _onJavaScriptTextInputDialogCallback;
+        if (callback == null) {
+          return null;
+        }
+        final String text = await callback(
+          JavaScriptTextInputDialogRequest(
+            message: message,
+            url: url,
+            defaultText: defaultText,
+          ),
+        );
+        return <String, Object?>{'action': 'confirm', 'text': text};
+    }
+
+    return null;
+  }
+
+  Future<Map<String, Object?>?> _handleHttpAuthRequested(
+    String url,
+    String challenge,
+  ) async {
+    final callback = _currentNavigationDelegate?._onHttpAuthRequest;
+    if (callback == null) {
+      return <String, Object?>{'action': 'cancel'};
+    }
+
+    final completer = Completer<Map<String, Object?>>();
+    final Uri? uri = Uri.tryParse(url);
+    try {
+      callback(
+        HttpAuthRequest(
+          host: uri?.host ?? url,
+          realm: _parseHttpAuthRealm(challenge),
+          onProceed: (WebViewCredential credential) {
+            if (completer.isCompleted) {
+              return;
+            }
+            completer.complete(<String, Object?>{
+              'action': 'proceed',
+              'user': credential.user,
+              'password': credential.password,
+            });
+          },
+          onCancel: () {
+            if (!completer.isCompleted) {
+              completer.complete(<String, Object?>{'action': 'cancel'});
+            }
+          },
+        ),
+      );
+    } catch (_) {
+      return <String, Object?>{'action': 'cancel'};
+    }
+    return completer.future;
+  }
+
+  String? _parseHttpAuthRealm(String challenge) {
+    final match = RegExp(
+      r'realm=(?:"([^"]*)"|([^,\s]+))',
+      caseSensitive: false,
+    ).firstMatch(challenge);
+    return match?.group(1) ?? match?.group(2);
+  }
+
+  String? _mimeTypeFromResponseHeaders(Map<String, String> headers) {
+    for (final MapEntry<String, String> header in headers.entries) {
+      if (header.key.toLowerCase() != 'content-type') {
+        continue;
+      }
+      final String mimeType = header.value
+          .split(';')
+          .first
+          .trim()
+          .toLowerCase();
+      return mimeType.isEmpty ? null : mimeType;
+    }
+    return null;
+  }
+
+  Future<Map<String, Object?>?> _handleSslAuthError(
+    String url,
+    int errorStatus,
+  ) async {
+    final callback = _currentNavigationDelegate?._onSslAuthError;
+    if (callback == null) {
+      return <String, Object?>{'action': 'cancel'};
+    }
+
+    final completer = Completer<Map<String, Object?>>();
+    final status = _webErrorStatusFromIndex(errorStatus);
+    try {
+      callback(
+        WindowsPlatformSslAuthError(
+          description: _sslAuthErrorDescription(url, status),
+          onProceed: () async {
+            if (!completer.isCompleted) {
+              completer.complete(<String, Object?>{'action': 'proceed'});
+            }
+          },
+          onCancel: () async {
+            if (!completer.isCompleted) {
+              completer.complete(<String, Object?>{'action': 'cancel'});
+            }
+          },
+        ),
+      );
+    } catch (_) {
+      return <String, Object?>{'action': 'cancel'};
+    }
+    return completer.future;
+  }
+
+  native_types.WebErrorStatus _webErrorStatusFromIndex(int index) {
+    if (index < 0 || index >= native_types.WebErrorStatus.values.length) {
+      return native_types.WebErrorStatus.WebErrorStatusUnknown;
+    }
+    return native_types.WebErrorStatus.values[index];
+  }
+
+  String _sslAuthErrorDescription(
+    String url,
+    native_types.WebErrorStatus status,
+  ) {
+    return 'SSL certificate error for $url: ${status.name}.';
+  }
+
+  Future<void> _updateJavaScriptDialogCallbacksEnabled() {
+    return _webviewController.setJavaScriptDialogCallbacksEnabled(
+      alert: _onJavaScriptAlertDialogCallback != null,
+      confirm: _onJavaScriptConfirmDialogCallback != null,
+      prompt: _onJavaScriptTextInputDialogCallback != null,
+    );
+  }
+
   JavaScriptLogLevel _parseJavaScriptLogLevel(String? level) {
     switch (level) {
       case 'debug':
@@ -303,6 +503,11 @@ class WindowsWebViewController extends PlatformWebViewController {
   }
 
   @override
+  Future<void> loadFileWithParams(LoadFileParams params) {
+    return loadFile(params.absoluteFilePath);
+  }
+
+  @override
   Future<void> loadFlutterAsset(String key) async {
     await _ensureInitialized();
     final assetPath = _resolveFlutterAssetPath(key);
@@ -338,19 +543,15 @@ class WindowsWebViewController extends PlatformWebViewController {
       );
     }
 
-    if (params.method == LoadRequestMethod.get &&
-        params.headers.isEmpty &&
-        (params.body == null || params.body!.isEmpty)) {
-      if (!await _shouldNavigate(params.uri.toString())) {
-        return;
-      }
-      await _webviewController.loadUrl(params.uri.toString());
+    if (!await _shouldNavigate(params.uri.toString())) {
       return;
     }
 
-    throw UnsupportedError(
-      'Windows WebView2 currently only supports GET requests without custom '
-      'headers or body through this plugin.',
+    await _webviewController.loadRequest(
+      url: params.uri.toString(),
+      method: params.method.serialize(),
+      headers: _serializeRequestHeaders(params.headers),
+      body: params.body,
     );
   }
 
@@ -399,12 +600,7 @@ class WindowsWebViewController extends PlatformWebViewController {
   @override
   Future<void> clearLocalStorage() async {
     await _ensureInitialized();
-    await runJavaScript('''
-      try {
-        localStorage.clear();
-        sessionStorage.clear();
-      } catch (_) {}
-      ''');
+    await _webviewController.clearLocalStorage();
   }
 
   @override
@@ -492,14 +688,30 @@ class WindowsWebViewController extends PlatformWebViewController {
   }
 
   @override
-  Future<void> setVerticalScrollBarEnabled(bool enabled) async {}
+  Future<void> setVerticalScrollBarEnabled(bool enabled) async {
+    await _ensureInitialized();
+    if (_verticalScrollBarEnabled == enabled) {
+      return;
+    }
+
+    _verticalScrollBarEnabled = enabled;
+    await _updateScrollBarStyle();
+  }
 
   @override
-  Future<void> setHorizontalScrollBarEnabled(bool enabled) async {}
+  Future<void> setHorizontalScrollBarEnabled(bool enabled) async {
+    await _ensureInitialized();
+    if (_horizontalScrollBarEnabled == enabled) {
+      return;
+    }
+
+    _horizontalScrollBarEnabled = enabled;
+    await _updateScrollBarStyle();
+  }
 
   @override
   bool supportsSetScrollBarsEnabled() {
-    return false;
+    return true;
   }
 
   @override
@@ -518,23 +730,7 @@ class WindowsWebViewController extends PlatformWebViewController {
   @override
   Future<void> enableZoom(bool enabled) async {
     await _ensureInitialized();
-    if (enabled) {
-      await _webviewController.setZoomFactor(1.0);
-      return;
-    }
-
-    await runJavaScript('''
-      (function() {
-        let viewport = document.querySelector('meta[name="viewport"]');
-        if (!viewport) {
-          viewport = document.createElement('meta');
-          viewport.name = 'viewport';
-          document.head.appendChild(viewport);
-        }
-        viewport.content =
-            'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
-      })();
-      ''');
+    await _webviewController.setZoomControlEnabled(enabled);
   }
 
   @override
@@ -545,24 +741,15 @@ class WindowsWebViewController extends PlatformWebViewController {
 
   @override
   Future<void> setJavaScriptMode(JavaScriptMode javaScriptMode) async {
-    if (javaScriptMode == JavaScriptMode.unrestricted) {
-      return;
-    }
-    throw UnsupportedError(
-      'Windows WebView2 does not currently support disabling JavaScript in '
-      'this plugin implementation.',
+    await _ensureInitialized();
+    await _webviewController.setJavaScriptEnabled(
+      javaScriptMode == JavaScriptMode.unrestricted,
     );
   }
 
   @override
   Future<void> setUserAgent(String? userAgent) async {
     await _ensureInitialized();
-    if (userAgent == null) {
-      throw UnsupportedError(
-        'Resetting the Windows user agent to the default value is not '
-        'supported by this plugin implementation.',
-      );
-    }
     _userAgent = userAgent;
     await _webviewController.setUserAgent(userAgent);
   }
@@ -577,9 +764,13 @@ class WindowsWebViewController extends PlatformWebViewController {
       native_types.WebviewPermissionKind permissionKind,
       bool isUserInitiated,
     ) async {
-      final request = _WindowsWebViewPermissionRequest(
-        types: _toPermissionTypes(permissionKind),
+      final Set<WebViewPermissionResourceType> types = _toPermissionTypes(
+        permissionKind,
       );
+      if (types.isEmpty) {
+        return native_types.WebviewPermissionDecision.none;
+      }
+      final request = _WindowsWebViewPermissionRequest(types: types);
       onPermissionRequest(request);
       return request.decision.future;
     });
@@ -588,7 +779,7 @@ class WindowsWebViewController extends PlatformWebViewController {
   @override
   Future<String?> getUserAgent() async {
     await _ensureInitialized();
-    return _userAgent;
+    return _userAgent ?? await _webviewController.getUserAgent();
   }
 
   @override
@@ -608,13 +799,22 @@ class WindowsWebViewController extends PlatformWebViewController {
           return;
         }
         window.__flutterWindowsConsoleHookInstalled = true;
+        function stringifyArg(arg) {
+          if (typeof arg === 'string') {
+            return arg;
+          }
+          try {
+            const json = JSON.stringify(arg);
+            return json === undefined ? String(arg) : json;
+          } catch (_) {
+            return String(arg);
+          }
+        }
         function emit(level, args) {
           window.chrome.webview.postMessage({
             "$_channelMessageType": "$_consoleMessageType",
             "level": level,
-            "message": Array.from(args).map(function(arg) {
-              return typeof arg === 'string' ? arg : JSON.stringify(arg);
-            }).join(' ')
+            "message": Array.from(args).map(stringifyArg).join(' ')
           });
         }
         ['log', 'info', 'warn', 'error', 'debug'].forEach(function(level) {
@@ -666,9 +866,9 @@ class WindowsWebViewController extends PlatformWebViewController {
     Future<void> Function(JavaScriptAlertDialogRequest request)
     onJavaScriptAlertDialog,
   ) async {
-    throw UnsupportedError(
-      'JavaScript alert dialog callbacks are not yet supported on Windows.',
-    );
+    await _ensureInitialized();
+    _onJavaScriptAlertDialogCallback = onJavaScriptAlertDialog;
+    await _updateJavaScriptDialogCallbacksEnabled();
   }
 
   @override
@@ -676,9 +876,9 @@ class WindowsWebViewController extends PlatformWebViewController {
     Future<bool> Function(JavaScriptConfirmDialogRequest request)
     onJavaScriptConfirmDialog,
   ) async {
-    throw UnsupportedError(
-      'JavaScript confirm dialog callbacks are not yet supported on Windows.',
-    );
+    await _ensureInitialized();
+    _onJavaScriptConfirmDialogCallback = onJavaScriptConfirmDialog;
+    await _updateJavaScriptDialogCallbacksEnabled();
   }
 
   @override
@@ -686,26 +886,20 @@ class WindowsWebViewController extends PlatformWebViewController {
     Future<String> Function(JavaScriptTextInputDialogRequest request)
     onJavaScriptTextInputDialog,
   ) async {
-    throw UnsupportedError(
-      'JavaScript text input dialog callbacks are not yet supported on Windows.',
-    );
+    await _ensureInitialized();
+    _onJavaScriptTextInputDialogCallback = onJavaScriptTextInputDialog;
+    await _updateJavaScriptDialogCallbacksEnabled();
   }
 
   @override
   Future<void> setOverScrollMode(WebViewOverScrollMode mode) async {
-    switch (mode) {
-      case WebViewOverScrollMode.never:
-        await runJavaScript('''
-          (function() {
-            document.documentElement.style.overscrollBehavior = 'none';
-            document.body.style.overscrollBehavior = 'none';
-          })();
-          ''');
-        break;
-      case WebViewOverScrollMode.always:
-      case WebViewOverScrollMode.ifContentScrolls:
-        break;
+    await _ensureInitialized();
+    if (_overScrollMode == mode) {
+      return;
     }
+
+    _overScrollMode = mode;
+    await _updateOverScrollStyle();
   }
 
   /// Opens the browser devtools for this WebView.
@@ -775,6 +969,119 @@ class WindowsWebViewController extends PlatformWebViewController {
       NavigationRequest(url: url, isMainFrame: true),
     );
     return decision == NavigationDecision.navigate;
+  }
+
+  String _serializeRequestHeaders(Map<String, String> headers) {
+    final buffer = StringBuffer();
+    for (final MapEntry<String, String> header in headers.entries) {
+      if (header.key.isEmpty ||
+          header.key.contains('\r') ||
+          header.key.contains('\n') ||
+          header.value.contains('\r') ||
+          header.value.contains('\n')) {
+        throw ArgumentError.value(
+          headers,
+          'headers',
+          'HTTP request headers must not be empty or contain CR/LF.',
+        );
+      }
+      buffer.write(header.key);
+      buffer.write(': ');
+      buffer.write(header.value);
+      buffer.write('\r\n');
+    }
+    return buffer.toString();
+  }
+
+  Future<void> _updateScrollBarStyle() async {
+    if (_scrollBarStyleScriptId != null) {
+      await _webviewController.removeScriptToExecuteOnDocumentCreated(
+        _scrollBarStyleScriptId!,
+      );
+      _scrollBarStyleScriptId = null;
+    }
+
+    final script = _scrollBarStyleScript();
+    if (!_verticalScrollBarEnabled || !_horizontalScrollBarEnabled) {
+      _scrollBarStyleScriptId = await _webviewController
+          .addScriptToExecuteOnDocumentCreated(script);
+    }
+    await _webviewController.executeScript(script);
+  }
+
+  String _scrollBarStyleScript() {
+    final css = StringBuffer();
+    if (!_verticalScrollBarEnabled) {
+      css.writeln('*::-webkit-scrollbar:vertical { width: 0 !important; }');
+    }
+    if (!_horizontalScrollBarEnabled) {
+      css.writeln('*::-webkit-scrollbar:horizontal { height: 0 !important; }');
+    }
+
+    return '''
+      (function() {
+        const styleId = '__flutter_webview_all_scrollbars';
+        const css = ${jsonEncode(css.toString())};
+        let style = document.getElementById(styleId);
+        if (!css) {
+          if (style) {
+            style.remove();
+          }
+          return;
+        }
+        if (!style) {
+          style = document.createElement('style');
+          style.id = styleId;
+          (document.head || document.documentElement).appendChild(style);
+        }
+        style.textContent = css;
+      })();
+      ''';
+  }
+
+  Future<void> _updateOverScrollStyle() async {
+    if (_overScrollStyleScriptId != null) {
+      await _webviewController.removeScriptToExecuteOnDocumentCreated(
+        _overScrollStyleScriptId!,
+      );
+      _overScrollStyleScriptId = null;
+    }
+
+    final script = _overScrollStyleScript();
+    if (_overScrollMode != WebViewOverScrollMode.always) {
+      _overScrollStyleScriptId = await _webviewController
+          .addScriptToExecuteOnDocumentCreated(script);
+    }
+    await _webviewController.executeScript(script);
+  }
+
+  String _overScrollStyleScript() {
+    final String value = switch (_overScrollMode) {
+      WebViewOverScrollMode.always => '',
+      WebViewOverScrollMode.ifContentScrolls => 'contain',
+      WebViewOverScrollMode.never => 'none',
+    };
+
+    return '''
+      (function() {
+        const styleId = '__flutter_webview_all_overscroll';
+        const value = ${jsonEncode(value)};
+        let style = document.getElementById(styleId);
+        if (!value) {
+          if (style) {
+            style.remove();
+          }
+          return;
+        }
+        if (!style) {
+          style = document.createElement('style');
+          style.id = styleId;
+          (document.head || document.documentElement).appendChild(style);
+        }
+        style.textContent =
+            'html, body { overscroll-behavior: ' + value + ' !important; }';
+      })();
+      ''';
   }
 
   String _injectBaseUrl(String html, String baseUrl) {
@@ -872,6 +1179,9 @@ class WindowsNavigationDelegate extends PlatformNavigationDelegate {
   PageEventCallback? _onPageStarted;
   ProgressCallback? _onProgress;
   WebResourceErrorCallback? _onWebResourceError;
+  HttpResponseErrorCallback? _onHttpError;
+  HttpAuthRequestCallback? _onHttpAuthRequest;
+  SslAuthErrorCallback? _onSslAuthError;
   NavigationRequestCallback? _onNavigationRequest;
   UrlChangeCallback? _onUrlChange;
 
@@ -894,7 +1204,7 @@ class WindowsNavigationDelegate extends PlatformNavigationDelegate {
 
   @override
   Future<void> setOnHttpError(HttpResponseErrorCallback onHttpError) async {
-    // HTTP response callbacks are not surfaced by the current Windows backend.
+    _onHttpError = onHttpError;
   }
 
   @override
@@ -918,13 +1228,72 @@ class WindowsNavigationDelegate extends PlatformNavigationDelegate {
   Future<void> setOnHttpAuthRequest(
     HttpAuthRequestCallback onHttpAuthRequest,
   ) async {
-    // HTTP auth callbacks are not surfaced by the current Windows backend.
+    _onHttpAuthRequest = onHttpAuthRequest;
   }
 
   @override
   Future<void> setOnSSlAuthError(SslAuthErrorCallback onSslAuthError) async {
-    // SSL auth callbacks are not surfaced by the current Windows backend.
+    _onSslAuthError = onSslAuthError;
   }
+}
+
+/// Windows implementation of [PlatformSslAuthError].
+class WindowsPlatformSslAuthError extends PlatformSslAuthError {
+  /// Creates a [WindowsPlatformSslAuthError].
+  WindowsPlatformSslAuthError({
+    required String description,
+    required Future<void> Function() onProceed,
+    required Future<void> Function() onCancel,
+  }) : _onProceed = onProceed,
+       _onCancel = onCancel,
+       super(certificate: null, description: description);
+
+  final Future<void> Function() _onProceed;
+  final Future<void> Function() _onCancel;
+
+  @override
+  Future<void> proceed() {
+    return _onProceed();
+  }
+
+  @override
+  Future<void> cancel() {
+    return _onCancel();
+  }
+}
+
+/// Windows implementation of [WebResourceRequest].
+class WindowsWebResourceRequest extends WebResourceRequest {
+  /// Creates a [WindowsWebResourceRequest].
+  const WindowsWebResourceRequest._({
+    required super.uri,
+    this.method,
+    this.headers = const <String, String>{},
+  });
+
+  /// The HTTP method reported by WebView2, when available.
+  final String? method;
+
+  /// The HTTP request headers reported by WebView2.
+  final Map<String, String> headers;
+}
+
+/// Windows implementation of [WebResourceResponse].
+class WindowsWebResourceResponse extends WebResourceResponse {
+  /// Creates a [WindowsWebResourceResponse].
+  const WindowsWebResourceResponse._({
+    required super.uri,
+    required super.statusCode,
+    required super.headers,
+    this.reasonPhrase,
+    this.mimeType,
+  });
+
+  /// The HTTP reason phrase reported by WebView2, when available.
+  final String? reasonPhrase;
+
+  /// The response MIME type parsed from WebView2 headers, when available.
+  final String? mimeType;
 }
 
 /// Windows error mapping for WebView2 load failures.
